@@ -21,11 +21,11 @@ DROP TABLE IF EXISTS `TRIP`;
 DROP TABLE IF EXISTS `PLACE_REVIEW`;
 DROP TABLE IF EXISTS `PLACE`;
 DROP TABLE IF EXISTS `REGION`;
-DROP TABLE IF EXISTS `USER`;
+DROP TABLE IF EXISTS `APP_USER`;
 SET FOREIGN_KEY_CHECKS = 1;
 
-CREATE TABLE `USER` (
-  `user_id` VARCHAR(64) NOT NULL,
+CREATE TABLE `APP_USER` (
+  `user_id` BIGINT NOT NULL AUTO_INCREMENT,
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `nickname` VARCHAR(100) NOT NULL,
@@ -34,26 +34,26 @@ CREATE TABLE `USER` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
-  UNIQUE KEY `uk_user_email` (`email`)
+  UNIQUE KEY `uk_app_user_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `REGION` (
-  `region_id` BIGINT NOT NULL,
+  `region_id` BIGINT NOT NULL AUTO_INCREMENT,
   `region_name` VARCHAR(150) NOT NULL,
   `parent_region_id` BIGINT NULL,
-  `parent_region_name` VARCHAR(150) NULL,
-  PRIMARY KEY (`region_id`, `region_name`),
+  PRIMARY KEY (`region_id`),
+  KEY `idx_region_parent` (`parent_region_id`),
+  UNIQUE KEY `uk_region_parent_name` (`parent_region_id`, `region_name`),
   CONSTRAINT `fk_region_parent`
-    FOREIGN KEY (`parent_region_id`, `parent_region_name`)
-    REFERENCES `REGION` (`region_id`, `region_name`)
+    FOREIGN KEY (`parent_region_id`)
+    REFERENCES `REGION` (`region_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `PLACE` (
+  `place_id` BIGINT NOT NULL AUTO_INCREMENT,
   `region_id` BIGINT NOT NULL,
-  `region_name` VARCHAR(150) NOT NULL,
-  `place_id` BIGINT NOT NULL,
   `place_name` VARCHAR(150) NOT NULL,
   `category` VARCHAR(100) NULL,
   `address` VARCHAR(500) NULL,
@@ -63,38 +63,37 @@ CREATE TABLE `PLACE` (
   `image_url` VARCHAR(1000) NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`region_id`, `region_name`, `place_id`, `place_name`),
-  KEY `idx_place_id` (`place_id`),
+  PRIMARY KEY (`place_id`),
+  KEY `idx_place_region` (`region_id`),
+  KEY `idx_place_category` (`category`),
+  UNIQUE KEY `uk_place_region_name_address` (`region_id`, `place_name`, `address`),
   CONSTRAINT `fk_place_region`
-    FOREIGN KEY (`region_id`, `region_name`)
-    REFERENCES `REGION` (`region_id`, `region_name`)
+    FOREIGN KEY (`region_id`)
+    REFERENCES `REGION` (`region_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `PLACE_REVIEW` (
-  `region_id` BIGINT NOT NULL,
-  `region_name` VARCHAR(150) NOT NULL,
-  `place_id` BIGINT NOT NULL,
-  `place_name` VARCHAR(150) NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
   `review_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `place_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
   `rating` INT NOT NULL,
   `content` TEXT NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`region_id`, `region_name`, `place_id`, `place_name`, `user_id`, `review_id`),
-  KEY `idx_place_review_review_id` (`review_id`),
+  PRIMARY KEY (`review_id`),
+  UNIQUE KEY `uk_place_review_place_user` (`place_id`, `user_id`),
   KEY `idx_place_review_user` (`user_id`),
   CONSTRAINT `fk_place_review_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_place_review_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `ck_place_review_rating`
@@ -102,8 +101,8 @@ CREATE TABLE `PLACE_REVIEW` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `TRIP` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
   `trip_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_user_id` BIGINT NOT NULL,
   `title` VARCHAR(255) NOT NULL,
   `description` TEXT NULL,
   `trip_type` VARCHAR(50) NULL,
@@ -112,44 +111,43 @@ CREATE TABLE `TRIP` (
   `status` VARCHAR(50) NOT NULL DEFAULT 'PLANNING',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`owner_user_id`, `trip_id`),
-  KEY `idx_trip_id` (`trip_id`),
+  PRIMARY KEY (`trip_id`),
+  KEY `idx_trip_owner` (`owner_user_id`),
+  KEY `idx_trip_owner_status` (`owner_user_id`, `status`),
   CONSTRAINT `fk_trip_owner`
     FOREIGN KEY (`owner_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `TRIP_MEMBER` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
+  `trip_member_id` BIGINT NOT NULL AUTO_INCREMENT,
   `trip_id` BIGINT NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
+  `user_id` BIGINT NOT NULL,
   `member_role` VARCHAR(50) NOT NULL DEFAULT 'MEMBER',
   `invite_status` VARCHAR(50) NOT NULL DEFAULT 'ACCEPTED',
   `joined_at` DATETIME NULL,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `user_id`),
+  PRIMARY KEY (`trip_member_id`),
+  UNIQUE KEY `uk_trip_member_trip_user` (`trip_id`, `user_id`),
   KEY `idx_trip_member_user` (`user_id`),
   CONSTRAINT `fk_trip_member_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_trip_member_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `SCHEDULE_ITEM` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
+  `schedule_item_id` BIGINT NOT NULL AUTO_INCREMENT,
   `trip_id` BIGINT NOT NULL,
-  `region_id` BIGINT NOT NULL,
-  `region_name` VARCHAR(150) NOT NULL,
   `place_id` BIGINT NOT NULL,
-  `place_name` VARCHAR(150) NOT NULL,
-  `created_by_user_id` VARCHAR(64) NOT NULL,
+  `created_by_user_id` BIGINT NOT NULL,
   `day_no` INT NULL,
   `schedule_date` DATE NOT NULL,
   `start_time` TIME NOT NULL,
@@ -159,59 +157,55 @@ CREATE TABLE `SCHEDULE_ITEM` (
   `sort_order` INT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `region_id`, `region_name`, `place_id`, `place_name`, `created_by_user_id`, `schedule_date`, `start_time`),
-  KEY `idx_schedule_place` (`region_id`, `region_name`, `place_id`, `place_name`),
+  PRIMARY KEY (`schedule_item_id`),
+  UNIQUE KEY `uk_schedule_trip_date_time_place` (`trip_id`, `schedule_date`, `start_time`, `place_id`),
+  KEY `idx_schedule_trip_date` (`trip_id`, `schedule_date`),
+  KEY `idx_schedule_trip_day_order` (`trip_id`, `day_no`, `sort_order`),
+  KEY `idx_schedule_place` (`place_id`),
   KEY `idx_schedule_creator` (`created_by_user_id`),
   CONSTRAINT `fk_schedule_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_schedule_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT,
   CONSTRAINT `fk_schedule_creator`
     FOREIGN KEY (`created_by_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `CHAT_MESSAGE` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
-  `sender_user_id` VARCHAR(64) NOT NULL,
   `message_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `trip_id` BIGINT NOT NULL,
+  `sender_user_id` BIGINT NOT NULL,
   `message_type` VARCHAR(50) NOT NULL DEFAULT 'TEXT',
   `content` TEXT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `sender_user_id`, `message_id`),
-  KEY `idx_chat_message_id` (`message_id`),
+  PRIMARY KEY (`message_id`),
+  KEY `idx_chat_trip_created` (`trip_id`, `created_at`),
   KEY `idx_chat_sender` (`sender_user_id`),
   CONSTRAINT `fk_chat_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_chat_sender`
     FOREIGN KEY (`sender_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `AI_SUGGESTION` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
-  `sender_user_id` VARCHAR(64) NOT NULL,
-  `source_message_id` BIGINT NOT NULL,
   `ai_suggestion_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `region_id` BIGINT NULL,
-  `region_name` VARCHAR(150) NULL,
+  `message_id` BIGINT NOT NULL,
   `suggested_place_id` BIGINT NULL,
-  `suggested_place_name` VARCHAR(150) NULL,
   `suggestion_type` VARCHAR(50) NULL,
   `suggested_title` VARCHAR(255) NULL,
   `summary` TEXT NULL,
@@ -219,180 +213,152 @@ CREATE TABLE `AI_SUGGESTION` (
   `status` VARCHAR(50) NOT NULL DEFAULT 'PENDING',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `applied_at` DATETIME NULL,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `sender_user_id`, `source_message_id`, `ai_suggestion_id`),
-  KEY `idx_ai_suggestion_id` (`ai_suggestion_id`),
-  KEY `idx_ai_suggestion_place` (`region_id`, `region_name`, `suggested_place_id`, `suggested_place_name`),
+  PRIMARY KEY (`ai_suggestion_id`),
+  KEY `idx_ai_suggestion_message` (`message_id`),
+  KEY `idx_ai_suggestion_place` (`suggested_place_id`),
   CONSTRAINT `fk_ai_suggestion_message`
-    FOREIGN KEY (`owner_user_id`, `trip_id`, `sender_user_id`, `source_message_id`)
-    REFERENCES `CHAT_MESSAGE` (`owner_user_id`, `trip_id`, `sender_user_id`, `message_id`)
+    FOREIGN KEY (`message_id`)
+    REFERENCES `CHAT_MESSAGE` (`message_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_ai_suggestion_place`
-    FOREIGN KEY (`region_id`, `region_name`, `suggested_place_id`, `suggested_place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`suggested_place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `VOTE` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
-  `creator_user_id` VARCHAR(64) NOT NULL,
   `vote_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `trip_id` BIGINT NOT NULL,
+  `creator_user_id` BIGINT NOT NULL,
   `title` VARCHAR(255) NOT NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'OPEN',
   `started_at` DATETIME NULL,
   `ended_at` DATETIME NULL,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`),
-  KEY `idx_vote_id` (`vote_id`),
+  PRIMARY KEY (`vote_id`),
+  KEY `idx_vote_trip_status` (`trip_id`, `status`),
   KEY `idx_vote_creator` (`creator_user_id`),
   CONSTRAINT `fk_vote_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_vote_creator`
     FOREIGN KEY (`creator_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `VOTE_OPTION` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
-  `creator_user_id` VARCHAR(64) NOT NULL,
-  `vote_id` BIGINT NOT NULL,
-  `region_id` BIGINT NULL,
-  `region_name` VARCHAR(150) NULL,
-  `place_id` BIGINT NULL,
-  `place_name` VARCHAR(150) NULL,
   `vote_option_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `vote_id` BIGINT NOT NULL,
+  `place_id` BIGINT NULL,
   `option_title` VARCHAR(255) NOT NULL,
   `description` TEXT NULL,
   `sort_order` INT NULL,
-  PRIMARY KEY (`vote_id`, `vote_option_id`),
-  KEY `idx_vote_option_id` (`vote_option_id`),
-  KEY `idx_vote_option_vote` (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`),
-  KEY `idx_vote_option_place` (`region_id`, `region_name`, `place_id`, `place_name`),
+  PRIMARY KEY (`vote_option_id`),
+  KEY `idx_vote_option_vote_order` (`vote_id`, `sort_order`),
+  KEY `idx_vote_option_place` (`place_id`),
   CONSTRAINT `fk_vote_option_vote`
-    FOREIGN KEY (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`)
-    REFERENCES `VOTE` (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`)
+    FOREIGN KEY (`vote_id`)
+    REFERENCES `VOTE` (`vote_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_vote_option_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `VOTE_BALLOT` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
-  `creator_user_id` VARCHAR(64) NOT NULL,
+  `vote_ballot_id` BIGINT NOT NULL AUTO_INCREMENT,
   `vote_id` BIGINT NOT NULL,
-  `region_id` BIGINT NULL,
-  `region_name` VARCHAR(150) NULL,
-  `place_id` BIGINT NULL,
-  `place_name` VARCHAR(150) NULL,
   `vote_option_id` BIGINT NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
+  `user_id` BIGINT NOT NULL,
   `voted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`vote_id`, `vote_option_id`, `user_id`),
-  KEY `idx_vote_ballot_vote` (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`),
-  KEY `idx_vote_ballot_place` (`region_id`, `region_name`, `place_id`, `place_name`),
+  PRIMARY KEY (`vote_ballot_id`),
+  UNIQUE KEY `uk_vote_ballot_vote_user` (`vote_id`, `user_id`),
+  KEY `idx_vote_ballot_option` (`vote_option_id`),
   KEY `idx_vote_ballot_user` (`user_id`),
   CONSTRAINT `fk_vote_ballot_vote`
-    FOREIGN KEY (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`)
-    REFERENCES `VOTE` (`owner_user_id`, `trip_id`, `creator_user_id`, `vote_id`)
+    FOREIGN KEY (`vote_id`)
+    REFERENCES `VOTE` (`vote_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_vote_ballot_option`
-    FOREIGN KEY (`vote_id`, `vote_option_id`)
-    REFERENCES `VOTE_OPTION` (`vote_id`, `vote_option_id`)
+    FOREIGN KEY (`vote_option_id`)
+    REFERENCES `VOTE_OPTION` (`vote_option_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
-  CONSTRAINT `fk_vote_ballot_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
-    ON UPDATE CASCADE
-    ON DELETE SET NULL,
   CONSTRAINT `fk_vote_ballot_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `CHECKLIST_ITEM` (
-  `owner_user_id` VARCHAR(64) NOT NULL,
-  `trip_id` BIGINT NOT NULL,
   `checklist_item_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `assignee_user_id` VARCHAR(64) NULL,
+  `trip_id` BIGINT NOT NULL,
+  `assignee_user_id` BIGINT NULL,
   `title` VARCHAR(255) NOT NULL,
   `is_done` BOOLEAN NOT NULL DEFAULT FALSE,
   `due_at` DATETIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
-  PRIMARY KEY (`owner_user_id`, `trip_id`, `checklist_item_id`),
-  KEY `idx_checklist_item_id` (`checklist_item_id`),
+  PRIMARY KEY (`checklist_item_id`),
+  KEY `idx_checklist_trip_done` (`trip_id`, `is_done`),
   KEY `idx_checklist_assignee` (`assignee_user_id`),
   CONSTRAINT `fk_checklist_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_checklist_assignee`
     FOREIGN KEY (`assignee_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `AI_RECOMMENDATION` (
-  `user_id` VARCHAR(64) NOT NULL,
   `recommendation_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `owner_user_id` VARCHAR(64) NULL,
+  `user_id` BIGINT NOT NULL,
   `trip_id` BIGINT NULL,
-  `region_id` BIGINT NULL,
-  `region_name` VARCHAR(150) NULL,
   `place_id` BIGINT NULL,
-  `place_name` VARCHAR(150) NULL,
   `condition_text` TEXT NULL,
   `reason` TEXT NULL,
   `sort_order` INT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`, `recommendation_id`),
-  KEY `idx_ai_recommendation_id` (`recommendation_id`),
-  KEY `idx_ai_recommendation_trip` (`owner_user_id`, `trip_id`),
-  KEY `idx_ai_recommendation_place` (`region_id`, `region_name`, `place_id`, `place_name`),
+  PRIMARY KEY (`recommendation_id`),
+  KEY `idx_ai_recommendation_user` (`user_id`),
+  KEY `idx_ai_recommendation_trip` (`trip_id`),
+  KEY `idx_ai_recommendation_place` (`place_id`),
   CONSTRAINT `fk_ai_recommendation_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_ai_recommendation_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL,
   CONSTRAINT `fk_ai_recommendation_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `COMMUNITY_POST` (
-  `user_id` VARCHAR(64) NOT NULL,
   `post_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `owner_user_id` VARCHAR(64) NULL,
+  `user_id` BIGINT NOT NULL,
   `trip_id` BIGINT NULL,
-  `region_id` BIGINT NULL,
-  `region_name` VARCHAR(150) NULL,
   `place_id` BIGINT NULL,
-  `place_name` VARCHAR(150) NULL,
   `category` VARCHAR(100) NULL,
   `title` VARCHAR(255) NOT NULL,
   `content` TEXT NULL,
@@ -400,68 +366,74 @@ CREATE TABLE `COMMUNITY_POST` (
   `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`, `post_id`),
-  KEY `idx_community_post_id` (`post_id`),
-  KEY `idx_community_post_trip` (`owner_user_id`, `trip_id`),
-  KEY `idx_community_post_place` (`region_id`, `region_name`, `place_id`, `place_name`),
+  PRIMARY KEY (`post_id`),
+  KEY `idx_community_post_user` (`user_id`),
+  KEY `idx_community_post_trip` (`trip_id`),
+  KEY `idx_community_post_place` (`place_id`),
+  KEY `idx_community_post_category_status` (`category`, `status`),
   CONSTRAINT `fk_community_post_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_community_post_trip`
-    FOREIGN KEY (`owner_user_id`, `trip_id`)
-    REFERENCES `TRIP` (`owner_user_id`, `trip_id`)
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL,
   CONSTRAINT `fk_community_post_place`
-    FOREIGN KEY (`region_id`, `region_name`, `place_id`, `place_name`)
-    REFERENCES `PLACE` (`region_id`, `region_name`, `place_id`, `place_name`)
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `COMMENT` (
-  `post_user_id` VARCHAR(64) NOT NULL,
-  `post_id` BIGINT NOT NULL,
-  `commenter_user_id` VARCHAR(64) NOT NULL,
-  `parent_comment_id` BIGINT NOT NULL DEFAULT 0,
   `comment_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `post_id` BIGINT NOT NULL,
+  `commenter_user_id` BIGINT NOT NULL,
+  `parent_comment_id` BIGINT NULL,
   `content` TEXT NOT NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`post_user_id`, `post_id`, `commenter_user_id`, `parent_comment_id`, `comment_id`),
-  KEY `idx_comment_id` (`comment_id`),
-  KEY `idx_comment_post` (`post_user_id`, `post_id`),
+  PRIMARY KEY (`comment_id`),
+  KEY `idx_comment_post_created` (`post_id`, `created_at`),
   KEY `idx_comment_commenter` (`commenter_user_id`),
   KEY `idx_comment_parent` (`parent_comment_id`),
   CONSTRAINT `fk_comment_post`
-    FOREIGN KEY (`post_user_id`, `post_id`)
-    REFERENCES `COMMUNITY_POST` (`user_id`, `post_id`)
+    FOREIGN KEY (`post_id`)
+    REFERENCES `COMMUNITY_POST` (`post_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_comment_commenter`
     FOREIGN KEY (`commenter_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_comment_parent`
+    FOREIGN KEY (`parent_comment_id`)
+    REFERENCES `COMMENT` (`comment_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `REPORT` (
-  `reporter_user_id` VARCHAR(64) NOT NULL,
   `report_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `reporter_user_id` BIGINT NOT NULL,
   `target_type` VARCHAR(50) NOT NULL,
-  `target_id` VARCHAR(255) NOT NULL,
+  `target_id` BIGINT NOT NULL,
   `reason` TEXT NOT NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'RECEIVED',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `resolved_at` DATETIME NULL,
-  PRIMARY KEY (`reporter_user_id`, `report_id`),
-  KEY `idx_report_id` (`report_id`),
+  PRIMARY KEY (`report_id`),
+  KEY `idx_report_reporter` (`reporter_user_id`),
+  KEY `idx_report_target` (`target_type`, `target_id`),
+  KEY `idx_report_status` (`status`),
   CONSTRAINT `fk_report_reporter`
     FOREIGN KEY (`reporter_user_id`)
-    REFERENCES `USER` (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
