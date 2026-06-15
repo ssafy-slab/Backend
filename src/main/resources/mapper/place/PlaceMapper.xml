@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.place.mapper.PlaceMapper">
+
+    <sql id="placeColumns">
+        p.place_id AS placeId,
+        p.place_name AS placeName,
+        p.category AS category,
+        r.region_id AS regionId,
+        r.region_name AS regionName,
+        r.region_full_name AS regionFullName,
+        p.address AS address,
+        p.latitude AS latitude,
+        p.longitude AS longitude,
+        p.description AS description,
+        p.image_url AS imageUrl,
+        p.thumbnail_url AS thumbnailUrl,
+        COALESCE(NULLIF(p.thumbnail_url, ''), NULLIF(p.image_url, ''), '/images/default-place.svg') AS displayImageUrl,
+        p.created_at AS createdAt,
+        p.updated_at AS updatedAt
+    </sql>
+
+    <sql id="placeFilter">
+        <where>
+            <if test="category != null and category != ''">
+                AND p.category = #{category}
+            </if>
+            <if test="regionId != null">
+                AND (p.region_id = #{regionId} OR r.parent_region_id = #{regionId})
+            </if>
+            <if test="searchTokens != null and searchTokens.size() > 0">
+                <foreach collection="searchTokens" item="token">
+                    AND (
+                        <foreach collection="token.terms" item="term" separator=" OR ">
+                            p.place_name LIKE CONCAT('%', #{term}, '%')
+                            OR p.address LIKE CONCAT('%', #{term}, '%')
+                            OR r.region_name LIKE CONCAT('%', #{term}, '%')
+                            OR r.region_full_name LIKE CONCAT('%', #{term}, '%')
+                        </foreach>
+                        <if test="token.category != null">
+                            OR p.category = #{token.category}
+                        </if>
+                        <if test="token.cat3 != null">
+                            OR p.cat3 = #{token.cat3}
+                        </if>
+                        <if test="token.lclsSystm2 != null">
+                            OR p.lcls_systm2 = #{token.lclsSystm2}
+                        </if>
+                    )
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <sql id="placeSearchScore">
+        <if test="searchTokens != null and searchTokens.size() > 0">
+            (
+                <foreach collection="searchTokens" item="token" separator=" + ">
+                    (
+                        <foreach collection="token.terms" item="term" separator=" + ">
+                            (CASE WHEN p.place_name LIKE CONCAT('%', #{term}, '%') THEN 20 ELSE 0 END)
+                            + (CASE WHEN r.region_full_name LIKE CONCAT('%', #{term}, '%') THEN 8 ELSE 0 END)
+                            + (CASE WHEN r.region_name LIKE CONCAT('%', #{term}, '%') THEN 8 ELSE 0 END)
+                            + (CASE WHEN p.address LIKE CONCAT('%', #{term}, '%') THEN 4 ELSE 0 END)
+                        </foreach>
+                        <if test="token.category != null">
+                            + (CASE WHEN p.category = #{token.category} THEN 10 ELSE 0 END)
+                        </if>
+                        <if test="token.cat3 != null">
+                            + (CASE WHEN p.cat3 = #{token.cat3} THEN 8 ELSE 0 END)
+                        </if>
+                        <if test="token.lclsSystm2 != null">
+                            + (CASE WHEN p.lcls_systm2 = #{token.lclsSystm2} THEN 8 ELSE 0 END)
+                        </if>
+                    )
+                </foreach>
+            ) DESC,
+        </if>
+    </sql>
+
+    <select id="findPlaces" resultType="com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse">
+        SELECT
+        <include refid="placeColumns"/>
+        FROM PLACE p
+        JOIN REGION r ON p.region_id = r.region_id
+        <include refid="placeFilter"/>
+        ORDER BY
+        <include refid="placeSearchScore"/>
+        p.place_id DESC
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
+
+    <select id="countPlaces" resultType="long">
+        SELECT COUNT(*)
+        FROM PLACE p
+        JOIN REGION r ON p.region_id = r.region_id
+        <include refid="placeFilter"/>
+    </select>
+
+    <select id="findById" resultType="com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse">
+        SELECT
+        <include refid="placeColumns"/>
+        FROM PLACE p
+        JOIN REGION r ON p.region_id = r.region_id
+        WHERE p.place_id = #{placeId}
+    </select>
+
+    <select id="findCategories" resultType="com.ssafy.ssafy_slap.place.dto.PlaceCategoryResponse">
+        SELECT
+            category AS value,
+            CASE
+                WHEN category = '레포츠' THEN '레저스포츠'
+                ELSE category
+            END AS label,
+            COUNT(*) AS count
+        FROM PLACE
+        WHERE category IS NOT NULL AND category != ''
+        GROUP BY category
+        ORDER BY count DESC, label ASC
+    </select>
+
+    <select id="findRegions" resultType="com.ssafy.ssafy_slap.place.dto.RegionFilterResponse">
+        SELECT *
+        FROM (
+            SELECT
+                parent.region_id AS regionId,
+                parent.region_name AS regionName,
+                parent.region_full_name AS regionFullName,
+                parent.region_level AS regionLevel,
+                parent.parent_region_id AS parentRegionId,
+                COUNT(p.place_id) AS placeCount
+            FROM REGION child
+            JOIN REGION parent ON child.parent_region_id = parent.region_id
+            JOIN PLACE p ON p.region_id = child.region_id
+            GROUP BY parent.region_id, parent.region_name, parent.region_full_name, parent.region_level, parent.parent_region_id
+
+            UNION ALL
+
+            SELECT
+                r.region_id AS regionId,
+                r.region_name AS regionName,
+                r.region_full_name AS regionFullName,
+                r.region_level AS regionLevel,
+                r.parent_region_id AS parentRegionId,
+                COUNT(p.place_id) AS placeCount
+            FROM REGION r
+            JOIN PLACE p ON p.region_id = r.region_id
+            GROUP BY r.region_id, r.region_name, r.region_full_name, r.region_level, r.parent_region_id
+        ) region_filters
+        ORDER BY regionLevel ASC, regionFullName ASC
+    </select>
+</mapper>
