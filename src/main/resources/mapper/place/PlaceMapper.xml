@@ -90,7 +90,7 @@
         <include refid="placeFilter"/>
         ORDER BY
         <include refid="placeSearchScore"/>
-        p.place_id DESC
+        p.place_id ASC
         LIMIT #{size}
         OFFSET #{offset}
     </select>
@@ -108,6 +108,15 @@
         FROM PLACE p
         JOIN REGION r ON p.region_id = r.region_id
         WHERE p.place_id = #{placeId}
+    </select>
+
+    <select id="findWeatherPointById" resultType="com.ssafy.ssafy_slap.place.dto.PlaceWeatherPoint">
+        SELECT
+            place_id AS placeId,
+            latitude AS latitude,
+            longitude AS longitude
+        FROM PLACE
+        WHERE place_id = #{placeId}
     </select>
 
     <select id="findCategories" resultType="com.ssafy.ssafy_slap.place.dto.PlaceCategoryResponse">

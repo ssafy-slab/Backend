@@ -4,7 +4,9 @@ import com.ssafy.ssafy_slap.place.dto.PlaceFilterResponse;
 import com.ssafy.ssafy_slap.place.dto.PlacePageResponse;
 import com.ssafy.ssafy_slap.place.dto.PlaceSearchRequest;
 import com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse;
+import com.ssafy.ssafy_slap.place.dto.PlaceWeatherResponse;
 import com.ssafy.ssafy_slap.place.service.PlaceService;
+import com.ssafy.ssafy_slap.place.service.PlaceWeatherService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlaceController {
 
     private final PlaceService placeService;
+    private final PlaceWeatherService placeWeatherService;
 
-    public PlaceController(PlaceService placeService) {
+    public PlaceController(PlaceService placeService, PlaceWeatherService placeWeatherService) {
         this.placeService = placeService;
+        this.placeWeatherService = placeWeatherService;
     }
 
     @GetMapping
@@ -36,6 +40,11 @@ public class PlaceController {
     @GetMapping("/{placeId}")
     public ResponseEntity<PlaceSummaryResponse> getPlace(@PathVariable Long placeId) {
         return ResponseEntity.ok(placeService.getPlace(placeId));
+    }
+
+    @GetMapping("/{placeId}/weather")
+    public PlaceWeatherResponse getPlaceWeather(@PathVariable Long placeId) {
+        return placeWeatherService.getWeather(placeId);
     }
 
     @GetMapping("/filters")

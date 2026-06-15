@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.place.mapper;
 import com.ssafy.ssafy_slap.place.dto.PlaceCategoryResponse;
 import com.ssafy.ssafy_slap.place.dto.PlaceSearchToken;
 import com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse;
+import com.ssafy.ssafy_slap.place.dto.PlaceWeatherPoint;
 import com.ssafy.ssafy_slap.place.dto.RegionFilterResponse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -27,6 +28,8 @@ public interface PlaceMapper {
     );
 
     PlaceSummaryResponse findById(@Param("placeId") Long placeId);
+
+    PlaceWeatherPoint findWeatherPointById(@Param("placeId") Long placeId);
 
     List<PlaceCategoryResponse> findCategories();
 
