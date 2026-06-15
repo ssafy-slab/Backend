@@ -2,6 +2,7 @@ package com.ssafy.ssafy_slap.place.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record PlaceWeatherResponse(
         boolean available,
@@ -14,9 +15,11 @@ public record PlaceWeatherResponse(
         String precipitationType,
         String skyStatus,
         String precipitationOneHour,
-        LocalDateTime updatedAt
+        LocalDateTime forecastAt,
+        LocalDateTime updatedAt,
+        List<PlaceWeatherForecast> forecasts
 ) {
     public static PlaceWeatherResponse unavailable(String message) {
-        return new PlaceWeatherResponse(false, message, null, null, null, null, null, null, null, null, null);
+        return new PlaceWeatherResponse(false, message, null, null, null, null, null, null, null, null, null, null, List.of());
     }
 }

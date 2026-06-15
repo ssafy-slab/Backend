@@ -11,6 +11,7 @@ public record PlaceWeatherForecast(
         String precipitationType,
         String skyStatus,
         String precipitationOneHour,
+        LocalDateTime forecastAt,
         LocalDateTime updatedAt
 ) {
 }

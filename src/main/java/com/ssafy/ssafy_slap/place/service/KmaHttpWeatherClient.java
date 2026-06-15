@@ -14,8 +14,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +30,9 @@ import java.util.regex.Pattern;
 public class KmaHttpWeatherClient implements KmaWeatherClient {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
     private static final int[] BASE_TIMES = {200, 500, 800, 1100, 1400, 1700, 2000, 2300};
+    private static final int FORECAST_LIMIT = 24;
     private static final Pattern ITEM_PATTERN = Pattern.compile("\\{[^{}]*\"baseDate\"[^{}]*}");
     private static final Pattern FIELD_PATTERN = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"?([^\",}]*)\"?");
 
@@ -50,7 +55,7 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
     }
 
     @Override
-    public Optional<PlaceWeatherForecast> fetchForecast(KmaGridCoordinate coordinate, LocalDateTime now) {
+    public Optional<List<PlaceWeatherForecast>> fetchForecasts(KmaGridCoordinate coordinate, LocalDateTime now) {
         if (!StringUtils.hasText(serviceKey)) {
             return Optional.empty();
         }
@@ -71,37 +76,41 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 return Optional.empty();
             }
-            return parseForecast(response.body(), now, baseDateTime);
+            return parseForecasts(response.body(), now, baseDateTime);
         } catch (Exception ignored) {
             return Optional.empty();
         }
     }
 
-    private Optional<PlaceWeatherForecast> parseForecast(String body, LocalDateTime now, BaseDateTime baseDateTime) {
+    private Optional<List<PlaceWeatherForecast>> parseForecasts(String body, LocalDateTime now, BaseDateTime baseDateTime) {
         List<ForecastItem> items = parseItems(body);
         if (items.isEmpty()) {
             return Optional.empty();
         }
 
-        String selectedDateTime = selectForecastDateTime(items, now);
-        Map<String, String> values = new HashMap<>();
+        Map<String, Map<String, String>> groupedValues = new LinkedHashMap<>();
         for (ForecastItem item : items) {
             String forecastDateTime = item.fcstDate() + item.fcstTime();
-            if (selectedDateTime.equals(forecastDateTime)) {
-                values.put(item.category(), item.fcstValue());
-            }
+            groupedValues.computeIfAbsent(forecastDateTime, ignored -> new HashMap<>())
+                    .put(item.category(), item.fcstValue());
         }
 
-        return Optional.of(new PlaceWeatherForecast(
-                toBigDecimal(values.get("TMP")),
-                toInteger(values.get("POP")),
-                toInteger(values.get("REH")),
-                toBigDecimal(values.get("WSD")),
-                precipitationType(values.get("PTY")),
-                skyStatus(values.get("SKY")),
-                emptyToNull(values.get("PCP")),
-                LocalDateTime.of(baseDateTime.date(), baseDateTime.localTime())
-        ));
+        String nowKey = now.format(DATE_TIME_FORMATTER);
+        List<PlaceWeatherForecast> forecasts = new ArrayList<>();
+        groupedValues.entrySet().stream()
+                .filter(entry -> entry.getKey().compareTo(nowKey) >= 0)
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .limit(FORECAST_LIMIT)
+                .forEach(entry -> forecasts.add(toForecast(entry.getKey(), entry.getValue(), baseDateTime)));
+
+        if (forecasts.isEmpty()) {
+            groupedValues.entrySet().stream()
+                    .sorted(Comparator.comparing(Map.Entry::getKey))
+                    .limit(FORECAST_LIMIT)
+                    .forEach(entry -> forecasts.add(toForecast(entry.getKey(), entry.getValue(), baseDateTime)));
+        }
+
+        return forecasts.isEmpty() ? Optional.empty() : Optional.of(forecasts);
     }
 
     private List<ForecastItem> parseItems(String body) {
@@ -128,20 +137,18 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
         return Optional.of(new ForecastItem(category, fcstDate, fcstTime, fcstValue));
     }
 
-    private String selectForecastDateTime(List<ForecastItem> items, LocalDateTime now) {
-        String nowKey = now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"));
-        String first = null;
-        String selected = null;
-        for (ForecastItem item : items) {
-            String forecastDateTime = item.fcstDate() + item.fcstTime();
-            if (first == null || forecastDateTime.compareTo(first) < 0) {
-                first = forecastDateTime;
-            }
-            if (forecastDateTime.compareTo(nowKey) >= 0 && (selected == null || forecastDateTime.compareTo(selected) < 0)) {
-                selected = forecastDateTime;
-            }
-        }
-        return selected != null ? selected : first;
+    private PlaceWeatherForecast toForecast(String forecastDateTime, Map<String, String> values, BaseDateTime baseDateTime) {
+        return new PlaceWeatherForecast(
+                toBigDecimal(values.get("TMP")),
+                toInteger(values.get("POP")),
+                toInteger(values.get("REH")),
+                toBigDecimal(values.get("WSD")),
+                precipitationType(values.get("PTY")),
+                skyStatus(values.get("SKY")),
+                emptyToNull(values.get("PCP")),
+                LocalDateTime.parse(forecastDateTime, DATE_TIME_FORMATTER),
+                LocalDateTime.of(baseDateTime.date(), baseDateTime.localTime())
+        );
     }
 
     private BaseDateTime resolveBaseDateTime(LocalDateTime now) {
@@ -156,7 +163,7 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
     }
 
     private BigDecimal toBigDecimal(String value) {
-        if (!StringUtils.hasText(value) || "강수없음".equals(value)) {
+        if (!StringUtils.hasText(value) || "\uac15\uc218\uc5c6\uc74c".equals(value)) {
             return null;
         }
         return new BigDecimal(value.replace("mm", "").trim());
@@ -171,20 +178,20 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
 
     private String precipitationType(String value) {
         return switch (value == null ? "" : value) {
-            case "0" -> "없음";
-            case "1" -> "비";
-            case "2" -> "비/눈";
-            case "3" -> "눈";
-            case "4" -> "소나기";
+            case "0" -> "NONE";
+            case "1" -> "RAIN";
+            case "2" -> "RAIN_SNOW";
+            case "3" -> "SNOW";
+            case "4" -> "SHOWER";
             default -> null;
         };
     }
 
     private String skyStatus(String value) {
         return switch (value == null ? "" : value) {
-            case "1" -> "맑음";
-            case "3" -> "구름많음";
-            case "4" -> "흐림";
+            case "1" -> "CLEAR";
+            case "3" -> "MOSTLY_CLOUDY";
+            case "4" -> "CLOUDY";
             default -> null;
         };
     }
@@ -194,8 +201,8 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
     }
 
     private record BaseDateTime(LocalDate date, String time) {
-        java.time.LocalTime localTime() {
-            return java.time.LocalTime.of(Integer.parseInt(time.substring(0, 2)), Integer.parseInt(time.substring(2, 4)));
+        LocalTime localTime() {
+            return LocalTime.of(Integer.parseInt(time.substring(0, 2)), Integer.parseInt(time.substring(2, 4)));
         }
     }
 

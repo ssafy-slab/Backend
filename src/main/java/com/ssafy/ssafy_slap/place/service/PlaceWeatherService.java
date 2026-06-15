@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -33,16 +34,17 @@ public class PlaceWeatherService {
             throw new NoSuchElementException("Place not found: " + placeId);
         }
         if (point.latitude() == null || point.longitude() == null) {
-            return PlaceWeatherResponse.unavailable("좌표가 없어 날씨 정보를 불러올 수 없습니다.");
+            return PlaceWeatherResponse.unavailable("Place coordinates are missing.");
         }
 
         KmaGridCoordinate coordinate = KmaGridConverter.fromLatLon(point.latitude(), point.longitude());
-        return weatherClient.fetchForecast(coordinate, now)
+        return weatherClient.fetchForecasts(coordinate, now)
                 .map(this::toResponse)
-                .orElseGet(() -> PlaceWeatherResponse.unavailable("날씨 정보를 불러올 수 없습니다."));
+                .orElseGet(() -> PlaceWeatherResponse.unavailable("Weather forecast is unavailable."));
     }
 
-    private PlaceWeatherResponse toResponse(PlaceWeatherForecast forecast) {
+    private PlaceWeatherResponse toResponse(List<PlaceWeatherForecast> forecasts) {
+        PlaceWeatherForecast forecast = forecasts.get(0);
         return new PlaceWeatherResponse(
                 true,
                 null,
@@ -54,7 +56,9 @@ public class PlaceWeatherService {
                 forecast.precipitationType(),
                 forecast.skyStatus(),
                 forecast.precipitationOneHour(),
-                forecast.updatedAt()
+                forecast.forecastAt(),
+                forecast.updatedAt(),
+                forecasts
         );
     }
 
