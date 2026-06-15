@@ -17,6 +17,8 @@ public record PlaceSummaryResponse(
         String imageUrl,
         String thumbnailUrl,
         String displayImageUrl,
+        String thumbnailImageUrl,
+        String detailImageUrl,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
