@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public enum NearbyFacilityType {
-    HOSPITAL("HP8", "병원"),
+    GAS_STATION("OL7", "주유소"),
     PHARMACY("PM9", "약국"),
     CONVENIENCE_STORE("CS2", "편의점");
 
@@ -33,7 +33,7 @@ public enum NearbyFacilityType {
     }
 
     public static List<NearbyFacilityType> defaultValues() {
-        return List.of(HOSPITAL, PHARMACY, CONVENIENCE_STORE);
+        return List.of(GAS_STATION, PHARMACY, CONVENIENCE_STORE);
     }
 
     public static NearbyFacilityType fromName(String name) {
