@@ -19,6 +19,9 @@ DROP TABLE IF EXISTS `SCHEDULE_ITEM`;
 DROP TABLE IF EXISTS `TRIP_MEMBER`;
 DROP TABLE IF EXISTS `TRIP`;
 DROP TABLE IF EXISTS `PLACE_REVIEW`;
+DROP TABLE IF EXISTS `PLACE_NEARBY_FACILITY`;
+DROP TABLE IF EXISTS `PLACE_NEARBY_FACILITY_CACHE`;
+DROP TABLE IF EXISTS `FACILITY`;
 DROP TABLE IF EXISTS `PLACE`;
 DROP TABLE IF EXISTS `REGION`;
 DROP TABLE IF EXISTS `APP_USER`;
@@ -107,6 +110,69 @@ CREATE TABLE `PLACE` (
     REFERENCES `REGION` (`region_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `FACILITY` (
+  `facility_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `source_provider` VARCHAR(30) NOT NULL DEFAULT 'KAKAO',
+  `external_id` VARCHAR(100) NOT NULL,
+  `facility_type` VARCHAR(50) NOT NULL,
+  `category_group_code` VARCHAR(20) NOT NULL,
+  `category_name` VARCHAR(255) NULL,
+  `facility_name` VARCHAR(150) NOT NULL,
+  `phone` VARCHAR(100) NULL,
+  `address` VARCHAR(500) NULL,
+  `road_address` VARCHAR(500) NULL,
+  `latitude` DECIMAL(13,10) NULL,
+  `longitude` DECIMAL(13,10) NULL,
+  `place_url` VARCHAR(1000) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`facility_id`),
+  UNIQUE KEY `uk_facility_source_external` (`source_provider`, `external_id`),
+  KEY `idx_facility_type` (`facility_type`),
+  KEY `idx_facility_category_group` (`category_group_code`),
+  KEY `idx_facility_location` (`latitude`, `longitude`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `PLACE_NEARBY_FACILITY_CACHE` (
+  `place_id` BIGINT NOT NULL,
+  `facility_type` VARCHAR(50) NOT NULL,
+  `search_radius_m` INT NOT NULL,
+  `result_count` INT NOT NULL DEFAULT 0,
+  `fetched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`place_id`, `facility_type`, `search_radius_m`),
+  KEY `idx_place_nearby_facility_cache_fetched` (`fetched_at`),
+  CONSTRAINT `fk_place_nearby_facility_cache_place`
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `PLACE_NEARBY_FACILITY` (
+  `place_id` BIGINT NOT NULL,
+  `facility_id` BIGINT NOT NULL,
+  `facility_type` VARCHAR(50) NOT NULL,
+  `distance_m` INT NULL,
+  `search_radius_m` INT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`place_id`, `facility_id`, `search_radius_m`),
+  KEY `idx_place_nearby_facility_place_type` (`place_id`, `facility_type`, `distance_m`),
+  KEY `idx_place_nearby_facility_facility` (`facility_id`),
+  CONSTRAINT `fk_place_nearby_facility_place`
+    FOREIGN KEY (`place_id`)
+    REFERENCES `PLACE` (`place_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_place_nearby_facility_facility`
+    FOREIGN KEY (`facility_id`)
+    REFERENCES `FACILITY` (`facility_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `PLACE_REVIEW` (

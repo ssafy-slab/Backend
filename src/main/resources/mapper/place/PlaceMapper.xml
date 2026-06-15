@@ -163,4 +163,138 @@
         ) region_filters
         ORDER BY regionLevel ASC, regionFullName ASC
     </select>
+
+    <select id="countValidNearbyFacilityCache" resultType="int">
+        SELECT COUNT(*)
+        FROM PLACE_NEARBY_FACILITY_CACHE
+        WHERE place_id = #{placeId}
+          AND facility_type = #{facilityType}
+          AND search_radius_m = #{searchRadiusM}
+          AND fetched_at >= #{validAfter}
+    </select>
+
+    <select id="findNearbyFacilities" resultType="com.ssafy.ssafy_slap.place.dto.NearbyFacilityResponse">
+        SELECT
+            f.facility_id AS facilityId,
+            f.facility_type AS facilityType,
+            f.category_group_code AS categoryGroupCode,
+            f.category_name AS categoryName,
+            f.facility_name AS facilityName,
+            f.phone AS phone,
+            f.address AS address,
+            f.road_address AS roadAddress,
+            f.latitude AS latitude,
+            f.longitude AS longitude,
+            f.place_url AS placeUrl,
+            pnf.distance_m AS distanceM
+        FROM PLACE_NEARBY_FACILITY pnf
+        JOIN FACILITY f ON pnf.facility_id = f.facility_id
+        WHERE pnf.place_id = #{placeId}
+          AND pnf.facility_type = #{facilityType}
+          AND pnf.search_radius_m = #{searchRadiusM}
+        ORDER BY
+            CASE WHEN pnf.distance_m IS NULL THEN 1 ELSE 0 END,
+            pnf.distance_m ASC,
+            f.facility_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="upsertFacility">
+        INSERT INTO FACILITY (
+            source_provider,
+            external_id,
+            facility_type,
+            category_group_code,
+            category_name,
+            facility_name,
+            phone,
+            address,
+            road_address,
+            latitude,
+            longitude,
+            place_url
+        )
+        VALUES (
+            'KAKAO',
+            #{facility.externalId},
+            #{facility.facilityType},
+            #{facility.facilityType.categoryGroupCode},
+            #{facility.categoryName},
+            #{facility.facilityName},
+            #{facility.phone},
+            #{facility.address},
+            #{facility.roadAddress},
+            #{facility.latitude},
+            #{facility.longitude},
+            #{facility.placeUrl}
+        )
+        ON DUPLICATE KEY UPDATE
+            facility_type = VALUES(facility_type),
+            category_group_code = VALUES(category_group_code),
+            category_name = VALUES(category_name),
+            facility_name = VALUES(facility_name),
+            phone = VALUES(phone),
+            address = VALUES(address),
+            road_address = VALUES(road_address),
+            latitude = VALUES(latitude),
+            longitude = VALUES(longitude),
+            place_url = VALUES(place_url),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <select id="findFacilityIdByExternalId" resultType="long">
+        SELECT facility_id
+        FROM FACILITY
+        WHERE source_provider = #{sourceProvider}
+          AND external_id = #{externalId}
+    </select>
+
+    <delete id="deleteNearbyFacilities">
+        DELETE FROM PLACE_NEARBY_FACILITY
+        WHERE place_id = #{placeId}
+          AND facility_type = #{facilityType}
+          AND search_radius_m = #{searchRadiusM}
+    </delete>
+
+    <insert id="insertNearbyFacility">
+        INSERT INTO PLACE_NEARBY_FACILITY (
+            place_id,
+            facility_id,
+            facility_type,
+            distance_m,
+            search_radius_m
+        )
+        VALUES (
+            #{placeId},
+            #{facilityId},
+            #{facilityType},
+            #{distanceM},
+            #{searchRadiusM}
+        )
+        ON DUPLICATE KEY UPDATE
+            facility_type = VALUES(facility_type),
+            distance_m = VALUES(distance_m),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <insert id="upsertNearbyFacilityCache">
+        INSERT INTO PLACE_NEARBY_FACILITY_CACHE (
+            place_id,
+            facility_type,
+            search_radius_m,
+            result_count,
+            fetched_at
+        )
+        VALUES (
+            #{placeId},
+            #{facilityType},
+            #{searchRadiusM},
+            #{resultCount},
+            CURRENT_TIMESTAMP
+        )
+        ON DUPLICATE KEY UPDATE
+            result_count = VALUES(result_count),
+            fetched_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
 </mapper>

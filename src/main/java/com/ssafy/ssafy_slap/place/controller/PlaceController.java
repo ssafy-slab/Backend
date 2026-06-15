@@ -1,10 +1,12 @@
 package com.ssafy.ssafy_slap.place.controller;
 
 import com.ssafy.ssafy_slap.place.dto.PlaceFilterResponse;
+import com.ssafy.ssafy_slap.place.dto.PlaceNearbyFacilitiesResponse;
 import com.ssafy.ssafy_slap.place.dto.PlacePageResponse;
 import com.ssafy.ssafy_slap.place.dto.PlaceSearchRequest;
 import com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse;
 import com.ssafy.ssafy_slap.place.dto.PlaceWeatherResponse;
+import com.ssafy.ssafy_slap.place.service.PlaceNearbyFacilityService;
 import com.ssafy.ssafy_slap.place.service.PlaceService;
 import com.ssafy.ssafy_slap.place.service.PlaceWeatherService;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +22,16 @@ public class PlaceController {
 
     private final PlaceService placeService;
     private final PlaceWeatherService placeWeatherService;
+    private final PlaceNearbyFacilityService placeNearbyFacilityService;
 
-    public PlaceController(PlaceService placeService, PlaceWeatherService placeWeatherService) {
+    public PlaceController(
+            PlaceService placeService,
+            PlaceWeatherService placeWeatherService,
+            PlaceNearbyFacilityService placeNearbyFacilityService
+    ) {
         this.placeService = placeService;
         this.placeWeatherService = placeWeatherService;
+        this.placeNearbyFacilityService = placeNearbyFacilityService;
     }
 
     @GetMapping
@@ -45,6 +53,16 @@ public class PlaceController {
     @GetMapping("/{placeId}/weather")
     public PlaceWeatherResponse getPlaceWeather(@PathVariable Long placeId) {
         return placeWeatherService.getWeather(placeId);
+    }
+
+    @GetMapping("/{placeId}/nearby-facilities")
+    public PlaceNearbyFacilitiesResponse getNearbyFacilities(
+            @PathVariable Long placeId,
+            @RequestParam(required = false) Integer radiusM,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String types
+    ) {
+        return placeNearbyFacilityService.getNearbyFacilities(placeId, radiusM, limit, types);
     }
 
     @GetMapping("/filters")
