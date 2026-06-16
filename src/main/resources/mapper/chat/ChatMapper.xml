@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.chat.mapper.ChatMapper">
+
+    <sql id="chatMessageColumns">
+        cm.message_id AS messageId,
+        cm.trip_id AS tripId,
+        cm.sender_user_id AS senderUserId,
+        au.nickname AS senderNickname,
+        cm.message_type AS messageType,
+        cm.content AS content,
+        cm.created_at AS createdAt
+    </sql>
+
+    <select id="existsTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP
+            WHERE trip_id = #{tripId}
+        )
+    </select>
+
+    <select id="existsUser" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM APP_USER
+            WHERE user_id = #{userId}
+        )
+    </select>
+
+    <insert id="insertMessage" useGeneratedKeys="true" keyProperty="message.messageId">
+        INSERT INTO CHAT_MESSAGE (
+            trip_id,
+            sender_user_id,
+            message_type,
+            content
+        )
+        VALUES (
+            #{message.tripId},
+            #{message.senderUserId},
+            #{message.messageType},
+            #{message.content}
+        )
+    </insert>
+
+    <select id="findMessageById" resultType="com.ssafy.ssafy_slap.chat.domain.ChatMessage">
+        SELECT
+        <include refid="chatMessageColumns"/>
+        FROM CHAT_MESSAGE cm
+        JOIN APP_USER au ON cm.sender_user_id = au.user_id
+        WHERE cm.message_id = #{messageId}
+    </select>
+
+    <select id="findRecentMessages" resultType="com.ssafy.ssafy_slap.chat.domain.ChatMessage">
+        SELECT *
+        FROM (
+            SELECT
+            <include refid="chatMessageColumns"/>
+            FROM CHAT_MESSAGE cm
+            JOIN APP_USER au ON cm.sender_user_id = au.user_id
+            WHERE cm.trip_id = #{tripId}
+            ORDER BY cm.created_at DESC, cm.message_id DESC
+            LIMIT #{limit}
+        ) recent_messages
+        ORDER BY createdAt ASC, messageId ASC
+    </select>
+</mapper>
