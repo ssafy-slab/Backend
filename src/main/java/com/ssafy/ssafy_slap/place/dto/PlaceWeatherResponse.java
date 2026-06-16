@@ -17,9 +17,10 @@ public record PlaceWeatherResponse(
         String precipitationOneHour,
         LocalDateTime forecastAt,
         LocalDateTime updatedAt,
-        List<PlaceWeatherForecast> forecasts
+        List<PlaceWeatherForecast> forecasts,
+        List<PlaceDailyWeatherForecast> dailyForecasts
 ) {
     public static PlaceWeatherResponse unavailable(String message) {
-        return new PlaceWeatherResponse(false, message, null, null, null, null, null, null, null, null, null, null, List.of());
+        return new PlaceWeatherResponse(false, message, null, null, null, null, null, null, null, null, null, null, List.of(), List.of());
     }
 }

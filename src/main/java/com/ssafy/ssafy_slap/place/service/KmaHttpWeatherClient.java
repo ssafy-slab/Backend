@@ -32,7 +32,7 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
     private static final int[] BASE_TIMES = {200, 500, 800, 1100, 1400, 1700, 2000, 2300};
-    private static final int FORECAST_LIMIT = 24;
+    private static final int FORECAST_DAYS = 4;
     private static final Pattern ITEM_PATTERN = Pattern.compile("\\{[^{}]*\"baseDate\"[^{}]*}");
     private static final Pattern FIELD_PATTERN = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"?([^\",}]*)\"?");
 
@@ -65,7 +65,7 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
             URI uri = URI.create(apiUrl + "?"
                     + "serviceKey=" + serviceKey
                     + "&pageNo=1"
-                    + "&numOfRows=1000"
+                    + "&numOfRows=2000"
                     + "&dataType=JSON"
                     + "&base_date=" + baseDateTime.date().format(DATE_FORMATTER)
                     + "&base_time=" + baseDateTime.time()
@@ -96,17 +96,18 @@ public class KmaHttpWeatherClient implements KmaWeatherClient {
         }
 
         String nowKey = now.format(DATE_TIME_FORMATTER);
+        String endDateKey = now.toLocalDate().plusDays(FORECAST_DAYS - 1).format(DATE_FORMATTER);
         List<PlaceWeatherForecast> forecasts = new ArrayList<>();
         groupedValues.entrySet().stream()
                 .filter(entry -> entry.getKey().compareTo(nowKey) >= 0)
+                .filter(entry -> entry.getKey().substring(0, 8).compareTo(endDateKey) <= 0)
                 .sorted(Comparator.comparing(Map.Entry::getKey))
-                .limit(FORECAST_LIMIT)
                 .forEach(entry -> forecasts.add(toForecast(entry.getKey(), entry.getValue(), baseDateTime)));
 
         if (forecasts.isEmpty()) {
             groupedValues.entrySet().stream()
+                    .filter(entry -> entry.getKey().substring(0, 8).compareTo(endDateKey) <= 0)
                     .sorted(Comparator.comparing(Map.Entry::getKey))
-                    .limit(FORECAST_LIMIT)
                     .forEach(entry -> forecasts.add(toForecast(entry.getKey(), entry.getValue(), baseDateTime)));
         }
 

@@ -1,5 +1,6 @@
 package com.ssafy.ssafy_slap.place.service;
 
+import com.ssafy.ssafy_slap.place.dto.PlaceDailyWeatherForecast;
 import com.ssafy.ssafy_slap.place.dto.PlaceWeatherForecast;
 import com.ssafy.ssafy_slap.place.dto.PlaceWeatherResponse;
 import com.ssafy.ssafy_slap.place.mapper.PlaceMapper;
@@ -8,9 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -45,6 +50,7 @@ public class PlaceWeatherService {
 
     private PlaceWeatherResponse toResponse(List<PlaceWeatherForecast> forecasts) {
         PlaceWeatherForecast forecast = forecasts.get(0);
+        List<PlaceDailyWeatherForecast> dailyForecasts = toDailyForecasts(forecasts, forecast.forecastAt().toLocalDate());
         return new PlaceWeatherResponse(
                 true,
                 null,
@@ -58,8 +64,102 @@ public class PlaceWeatherService {
                 forecast.precipitationOneHour(),
                 forecast.forecastAt(),
                 forecast.updatedAt(),
-                forecasts
+                forecasts,
+                dailyForecasts
         );
+    }
+
+    private List<PlaceDailyWeatherForecast> toDailyForecasts(List<PlaceWeatherForecast> forecasts, LocalDate today) {
+        LocalDate endDate = today.plusDays(3);
+        Map<LocalDate, List<PlaceWeatherForecast>> forecastsByDate = forecasts.stream()
+                .filter(forecast -> forecast.forecastAt() != null)
+                .filter(forecast -> forecast.forecastAt().toLocalDate().isAfter(today))
+                .filter(forecast -> !forecast.forecastAt().toLocalDate().isAfter(endDate))
+                .collect(Collectors.groupingBy(
+                        forecast -> forecast.forecastAt().toLocalDate(),
+                        java.util.TreeMap::new,
+                        Collectors.toList()
+                ));
+
+        return forecastsByDate.entrySet().stream()
+                .limit(3)
+                .map(entry -> toDailyForecast(today, entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private PlaceDailyWeatherForecast toDailyForecast(LocalDate today, LocalDate forecastDate, List<PlaceWeatherForecast> forecasts) {
+        PlaceWeatherForecast representative = forecasts.stream()
+                .max(Comparator.comparing(
+                        forecast -> forecast.precipitationProbability() == null ? -1 : forecast.precipitationProbability()
+                ))
+                .orElse(forecasts.get(0));
+
+        return new PlaceDailyWeatherForecast(
+                forecastDate,
+                dayLabel(today, forecastDate),
+                minTemperature(forecasts),
+                maxTemperature(forecasts),
+                maxPrecipitationProbability(forecasts),
+                maxHumidity(forecasts),
+                maxWindSpeed(forecasts),
+                representative.precipitationType(),
+                representative.skyStatus(),
+                representative.updatedAt()
+        );
+    }
+
+    private String dayLabel(LocalDate today, LocalDate forecastDate) {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(today, forecastDate);
+        if (days == 1) {
+            return "내일";
+        }
+        if (days == 2) {
+            return "모레";
+        }
+        if (days == 3) {
+            return "글피";
+        }
+        return forecastDate.getDayOfWeek().toString();
+    }
+
+    private BigDecimal minTemperature(List<PlaceWeatherForecast> forecasts) {
+        return forecasts.stream()
+                .map(PlaceWeatherForecast::temperature)
+                .filter(java.util.Objects::nonNull)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private BigDecimal maxTemperature(List<PlaceWeatherForecast> forecasts) {
+        return forecasts.stream()
+                .map(PlaceWeatherForecast::temperature)
+                .filter(java.util.Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private Integer maxPrecipitationProbability(List<PlaceWeatherForecast> forecasts) {
+        return forecasts.stream()
+                .map(PlaceWeatherForecast::precipitationProbability)
+                .filter(java.util.Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(null);
+    }
+
+    private Integer maxHumidity(List<PlaceWeatherForecast> forecasts) {
+        return forecasts.stream()
+                .map(PlaceWeatherForecast::humidity)
+                .filter(java.util.Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(null);
+    }
+
+    private BigDecimal maxWindSpeed(List<PlaceWeatherForecast> forecasts) {
+        return forecasts.stream()
+                .map(PlaceWeatherForecast::windSpeed)
+                .filter(java.util.Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(null);
     }
 
     private BigDecimal calculateFeelsLike(BigDecimal temperature, Integer humidity, BigDecimal windSpeed) {
