@@ -13,6 +13,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +36,7 @@ class UserServiceTest {
     }
 
     @Test
-    void softDeletesCurrentUser() {
+    void anonymizesUserAndUnlinksOAuthAccountsWhenDeletingCurrentUser() {
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = new UserService(userMapper);
 
@@ -43,7 +44,9 @@ class UserServiceTest {
 
         userService.deleteAccount(1L);
 
-        verify(userMapper).softDelete(1L);
+        verify(userMapper).deleteOAuthAccounts(1L);
+        verify(userMapper).anonymizeAndSoftDelete(1L, "deleted_1@deleted.slap.local");
+        verify(userMapper, never()).softDelete(1L);
     }
 
     @Test

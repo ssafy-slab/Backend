@@ -32,10 +32,19 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
 
+        String passwordHash = passwordEncoder.encode(request.password());
+        String nickname = request.nickname().trim();
+        AppUser deletedUser = userMapper.findByEmail(email)
+                .filter(candidate -> "DELETED".equals(candidate.getStatus()))
+                .orElse(null);
+        if (deletedUser != null) {
+            userMapper.anonymizeDeletedUserEmail(deletedUser.getUserId(), deletedEmail(deletedUser.getUserId()));
+        }
+
         AppUser user = new AppUser();
         user.setEmail(email);
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setNickname(request.nickname().trim());
+        user.setPasswordHash(passwordHash);
+        user.setNickname(nickname);
         user.setRole("USER");
         user.setStatus("ACTIVE");
 
@@ -68,5 +77,9 @@ public class AuthService {
 
     private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase();
+    }
+
+    private String deletedEmail(Long userId) {
+        return "deleted_" + userId + "@deleted.slap.local";
     }
 }

@@ -32,12 +32,54 @@
           AND status = 'ACTIVE'
     </select>
 
+    <select id="findByEmail" resultType="com.ssafy.ssafy_slap.user.domain.AppUser">
+        SELECT
+        <include refid="userColumns"/>
+        FROM APP_USER
+        WHERE email = #{email}
+    </select>
+
     <select id="findActiveById" resultType="com.ssafy.ssafy_slap.user.domain.AppUser">
         SELECT
         <include refid="userColumns"/>
         FROM APP_USER
         WHERE user_id = #{userId}
           AND status = 'ACTIVE'
+    </select>
+
+    <select id="findActiveByOAuthAccount" resultType="com.ssafy.ssafy_slap.user.domain.AppUser">
+        SELECT
+            u.user_id AS userId,
+            u.email AS email,
+            u.password_hash AS passwordHash,
+            u.nickname AS nickname,
+            u.role AS role,
+            u.status AS status,
+            u.created_at AS createdAt,
+            u.updated_at AS updatedAt
+        FROM APP_USER u
+        INNER JOIN OAUTH_ACCOUNT oa
+            ON oa.user_id = u.user_id
+        WHERE oa.provider = #{provider}
+          AND oa.provider_user_id = #{providerUserId}
+          AND u.status = 'ACTIVE'
+    </select>
+
+    <select id="findByOAuthAccount" resultType="com.ssafy.ssafy_slap.user.domain.AppUser">
+        SELECT
+            u.user_id AS userId,
+            u.email AS email,
+            u.password_hash AS passwordHash,
+            u.nickname AS nickname,
+            u.role AS role,
+            u.status AS status,
+            u.created_at AS createdAt,
+            u.updated_at AS updatedAt
+        FROM APP_USER u
+        INNER JOIN OAUTH_ACCOUNT oa
+            ON oa.user_id = u.user_id
+        WHERE oa.provider = #{provider}
+          AND oa.provider_user_id = #{providerUserId}
     </select>
 
     <insert id="insertLocalUser" useGeneratedKeys="true" keyProperty="user.userId">
@@ -57,9 +99,46 @@
         )
     </insert>
 
+    <update id="anonymizeDeletedUserEmail">
+        UPDATE APP_USER
+        SET email = #{deletedEmail},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND status = 'DELETED'
+    </update>
+
+    <insert id="insertOAuthAccount">
+        INSERT INTO OAUTH_ACCOUNT (
+            user_id,
+            provider,
+            provider_user_id,
+            email
+        )
+        VALUES (
+            #{userId},
+            #{provider},
+            #{providerUserId},
+            #{email}
+        )
+    </insert>
+
     <update id="updateNickname">
         UPDATE APP_USER
         SET nickname = #{nickname},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <delete id="deleteOAuthAccounts">
+        DELETE FROM OAUTH_ACCOUNT
+        WHERE user_id = #{userId}
+    </delete>
+
+    <update id="anonymizeAndSoftDelete">
+        UPDATE APP_USER
+        SET email = #{deletedEmail},
+            status = 'DELETED',
             updated_at = CURRENT_TIMESTAMP
         WHERE user_id = #{userId}
           AND status = 'ACTIVE'

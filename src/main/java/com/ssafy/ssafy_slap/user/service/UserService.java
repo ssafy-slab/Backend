@@ -38,11 +38,16 @@ public class UserService {
     @Transactional
     public void deleteAccount(Long userId) {
         findActiveUser(userId);
-        userMapper.softDelete(userId);
+        userMapper.deleteOAuthAccounts(userId);
+        userMapper.anonymizeAndSoftDelete(userId, deletedEmail(userId));
     }
 
     private AppUser findActiveUser(Long userId) {
         return userMapper.findActiveById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private String deletedEmail(Long userId) {
+        return "deleted_" + userId + "@deleted.slap.local";
     }
 }

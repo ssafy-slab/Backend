@@ -72,4 +72,40 @@ class AuthServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Invalid email or password");
     }
+
+    @Test
+    void createsNewLocalUserAfterDeletedEmailIsAnonymized() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+
+        AppUser deletedUser = new AppUser(
+                10L,
+                "test@example.com",
+                "old-password",
+                "old",
+                "USER",
+                "DELETED",
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+        when(userMapper.existsActiveByEmail("test@example.com")).thenReturn(false);
+        when(userMapper.findByEmail("test@example.com")).thenReturn(Optional.of(deletedUser));
+        when(passwordEncoder.encode("password123!")).thenReturn("new-password");
+        doAnswer(invocation -> {
+            AppUser user = invocation.getArgument(0);
+            user.setUserId(11L);
+            return null;
+        }).when(userMapper).insertLocalUser(org.mockito.ArgumentMatchers.any(AppUser.class));
+        when(tokenProvider.createAccessToken(11L, "USER")).thenReturn("access-token");
+
+        var response = authService.signup(new SignupRequest("test@example.com", "password123!", "tester"));
+
+        verify(userMapper).anonymizeDeletedUserEmail(10L, "deleted_10@deleted.slap.local");
+        verify(userMapper).insertLocalUser(org.mockito.ArgumentMatchers.any(AppUser.class));
+        assertThat(response.user().nickname()).isEqualTo("tester");
+        assertThat(response.user().email()).isEqualTo("test@example.com");
+        assertThat(response.accessToken()).isEqualTo("access-token");
+    }
 }
