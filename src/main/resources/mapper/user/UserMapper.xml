@@ -24,6 +24,15 @@
         )
     </select>
 
+    <select id="existsActiveByNickname" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM APP_USER
+            WHERE nickname = #{nickname}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
     <select id="findActiveByEmail" resultType="com.ssafy.ssafy_slap.user.domain.AppUser">
         SELECT
         <include refid="userColumns"/>
@@ -125,6 +134,14 @@
     <update id="updateNickname">
         UPDATE APP_USER
         SET nickname = #{nickname},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="updatePasswordHash">
+        UPDATE APP_USER
+        SET password_hash = #{passwordHash},
             updated_at = CURRENT_TIMESTAMP
         WHERE user_id = #{userId}
           AND status = 'ACTIVE'

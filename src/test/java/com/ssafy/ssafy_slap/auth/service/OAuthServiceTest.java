@@ -7,7 +7,11 @@ import com.ssafy.ssafy_slap.auth.oauth.OAuthTokenResponse;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 
+import java.security.SecureRandom;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,6 +22,94 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class OAuthServiceTest {
+
+    @ParameterizedTest
+    @CsvSource({
+            "KAKAO, 카카오여행자",
+            "NAVER, 네이버여행자",
+            "GOOGLE, 구글여행자"
+    })
+    void createsNewOAuthUserWithProviderTravelerNickname(
+            OAuthProvider provider,
+            String expectedNickname
+    ) {
+        UserMapper userMapper = mock(UserMapper.class);
+        OAuthClient oauthClient = mock(OAuthClient.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        SecureRandom secureRandom = mock(SecureRandom.class);
+        OAuthService service = new OAuthService(
+                userMapper,
+                oauthClient,
+                tokenProvider,
+                new com.ssafy.ssafy_slap.auth.oauth.OAuthProperties(),
+                secureRandom
+        );
+        String providerName = provider.name();
+        String providerUserId = provider.name().toLowerCase() + "-user-1";
+        String email = provider.name().toLowerCase() + "@example.com";
+
+        when(userMapper.findActiveByOAuthAccount(providerName, providerUserId)).thenReturn(Optional.empty());
+        when(userMapper.findByOAuthAccount(providerName, providerUserId)).thenReturn(Optional.empty());
+        when(userMapper.findActiveByEmail(email)).thenReturn(Optional.empty());
+        when(userMapper.findByEmail(email)).thenReturn(Optional.empty());
+        when(secureRandom.nextInt(10_000)).thenReturn(42);
+        when(userMapper.existsActiveByNickname(expectedNickname + "0042")).thenReturn(false);
+        when(oauthClient.exchangeCode(provider, "code-123", "state-123"))
+                .thenReturn(new OAuthTokenResponse("provider-access-token"));
+        when(oauthClient.fetchProfile(provider, "provider-access-token"))
+                .thenReturn(new OAuthProviderProfile(providerUserId, email, "실명 사용자"));
+        doAnswer(invocation -> {
+            AppUser user = invocation.getArgument(0);
+            user.setUserId(77L);
+            return null;
+        }).when(userMapper).insertLocalUser(any(AppUser.class));
+        when(tokenProvider.createAccessToken(77L, "USER")).thenReturn("access-token");
+
+        service.login(provider, "code-123", "state-123", "state-123");
+
+        ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
+        verify(userMapper).insertLocalUser(captor.capture());
+        assertThat(captor.getValue().getNickname()).isEqualTo(expectedNickname + "0042");
+    }
+
+    @Test
+    void retriesWhenGeneratedOAuthNicknameAlreadyExists() {
+        UserMapper userMapper = mock(UserMapper.class);
+        OAuthClient oauthClient = mock(OAuthClient.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        SecureRandom secureRandom = mock(SecureRandom.class);
+        OAuthService service = new OAuthService(
+                userMapper,
+                oauthClient,
+                tokenProvider,
+                new com.ssafy.ssafy_slap.auth.oauth.OAuthProperties(),
+                secureRandom
+        );
+
+        when(userMapper.findActiveByOAuthAccount("KAKAO", "kakao-user-1")).thenReturn(Optional.empty());
+        when(userMapper.findByOAuthAccount("KAKAO", "kakao-user-1")).thenReturn(Optional.empty());
+        when(userMapper.findActiveByEmail("kakao@example.com")).thenReturn(Optional.empty());
+        when(userMapper.findByEmail("kakao@example.com")).thenReturn(Optional.empty());
+        when(oauthClient.exchangeCode(OAuthProvider.KAKAO, "code-123", "state-123"))
+                .thenReturn(new OAuthTokenResponse("provider-access-token"));
+        when(oauthClient.fetchProfile(OAuthProvider.KAKAO, "provider-access-token"))
+                .thenReturn(new OAuthProviderProfile("kakao-user-1", "kakao@example.com", "실명 사용자"));
+        when(secureRandom.nextInt(10_000)).thenReturn(42, 731);
+        when(userMapper.existsActiveByNickname("카카오여행자0042")).thenReturn(true);
+        when(userMapper.existsActiveByNickname("카카오여행자0731")).thenReturn(false);
+        doAnswer(invocation -> {
+            AppUser user = invocation.getArgument(0);
+            user.setUserId(77L);
+            return null;
+        }).when(userMapper).insertLocalUser(any(AppUser.class));
+        when(tokenProvider.createAccessToken(77L, "USER")).thenReturn("access-token");
+
+        service.login(OAuthProvider.KAKAO, "code-123", "state-123", "state-123");
+
+        ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
+        verify(userMapper).insertLocalUser(captor.capture());
+        assertThat(captor.getValue().getNickname()).isEqualTo("카카오여행자0731");
+    }
 
     @Test
     void createsAuthorizationUrlWithStateAndProviderConfig() {
@@ -72,7 +164,8 @@ class OAuthServiceTest {
 
         assertThat(response.accessToken()).isEqualTo("jwt-token");
         assertThat(response.user().email()).isEqualTo("user@example.com");
-        assertThat(response.user().nickname()).isEqualTo("Google User");
+        assertThat(response.user().nickname()).startsWith("구글여행자");
+        assertThat(response.user().nickname()).matches("구글여행자\\d{4}");
         verify(userMapper).insertOAuthAccount(77L, "GOOGLE", "google-user-1", "user@example.com");
     }
 

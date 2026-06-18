@@ -11,6 +11,8 @@ public interface UserMapper {
 
     boolean existsActiveByEmail(@Param("email") String email);
 
+    boolean existsActiveByNickname(@Param("nickname") String nickname);
+
     Optional<AppUser> findActiveByEmail(@Param("email") String email);
 
     Optional<AppUser> findByEmail(@Param("email") String email);
@@ -44,6 +46,11 @@ public interface UserMapper {
     void updateNickname(
             @Param("userId") Long userId,
             @Param("nickname") String nickname
+    );
+
+    void updatePasswordHash(
+            @Param("userId") Long userId,
+            @Param("passwordHash") String passwordHash
     );
 
     void deleteOAuthAccounts(@Param("userId") Long userId);

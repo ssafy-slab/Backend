@@ -6,7 +6,8 @@ public record AuthUserResponse(
         Long userId,
         String email,
         String nickname,
-        String role
+        String role,
+        boolean localAccount
 ) {
 
     public static AuthUserResponse from(AppUser user) {
@@ -14,7 +15,8 @@ public record AuthUserResponse(
                 user.getUserId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getRole()
+                user.getRole(),
+                user.getPasswordHash() != null
         );
     }
 }

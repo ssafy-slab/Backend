@@ -116,7 +116,8 @@ public class OAuthController {
                 + "&userId=" + response.user().userId()
                 + "&email=" + encode(response.user().email())
                 + "&nickname=" + encode(response.user().nickname())
-                + "&role=" + encode(response.user().role());
+                + "&role=" + encode(response.user().role())
+                + "&localAccount=" + response.user().localAccount();
     }
 
     private String encode(String value) {

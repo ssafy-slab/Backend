@@ -4,6 +4,7 @@ import com.ssafy.ssafy_slap.auth.dto.AuthResponse;
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.dto.LoginRequest;
 import com.ssafy.ssafy_slap.auth.dto.SignupRequest;
+import com.ssafy.ssafy_slap.auth.dto.PasswordResetRequest;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.mapper.UserMapper;
 import org.springframework.http.HttpStatus;
@@ -65,6 +66,26 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
         return createAuthResponse(user);
+    }
+
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        AppUser user = findActiveLocalUser(request.email());
+        userMapper.updatePasswordHash(user.getUserId(), passwordEncoder.encode(request.newPassword()));
+    }
+
+    @Transactional(readOnly = true)
+    public void verifyPasswordResetEmail(String email) {
+        findActiveLocalUser(email);
+    }
+
+    private AppUser findActiveLocalUser(String email) {
+        AppUser user = userMapper.findActiveByEmail(normalizeEmail(email))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Local account not found"));
+        if (user.getPasswordHash() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OAuth account cannot reset password");
+        }
+        return user;
     }
 
     private AuthResponse createAuthResponse(AppUser user) {

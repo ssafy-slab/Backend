@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.user.controller;
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.service.AuthenticatedUser;
 import com.ssafy.ssafy_slap.user.dto.ProfileUpdateRequest;
+import com.ssafy.ssafy_slap.user.dto.PasswordChangeRequest;
 import com.ssafy.ssafy_slap.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,15 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(Authentication authentication) {
         userService.deleteAccount(currentUserId(authentication));
+    }
+
+    @PatchMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            Authentication authentication,
+            @Valid @RequestBody PasswordChangeRequest request
+    ) {
+        userService.changePassword(currentUserId(authentication), request);
     }
 
     private Long currentUserId(Authentication authentication) {

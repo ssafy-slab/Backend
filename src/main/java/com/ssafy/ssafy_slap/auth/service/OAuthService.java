@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.security.SecureRandom;
+
 @Service
 public class OAuthService {
 
@@ -22,17 +24,29 @@ public class OAuthService {
     private final OAuthClient oauthClient;
     private final JwtTokenProvider tokenProvider;
     private final OAuthProperties properties;
+    private final SecureRandom secureRandom;
 
     public OAuthService(UserMapper userMapper, OAuthClient oauthClient, JwtTokenProvider tokenProvider) {
-        this(userMapper, oauthClient, tokenProvider, new OAuthProperties());
+        this(userMapper, oauthClient, tokenProvider, new OAuthProperties(), new SecureRandom());
     }
 
     @Autowired
     public OAuthService(UserMapper userMapper, OAuthClient oauthClient, JwtTokenProvider tokenProvider, OAuthProperties properties) {
+        this(userMapper, oauthClient, tokenProvider, properties, new SecureRandom());
+    }
+
+    OAuthService(
+            UserMapper userMapper,
+            OAuthClient oauthClient,
+            JwtTokenProvider tokenProvider,
+            OAuthProperties properties,
+            SecureRandom secureRandom
+    ) {
         this.userMapper = userMapper;
         this.oauthClient = oauthClient;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
+        this.secureRandom = secureRandom;
     }
 
     public String createAuthorizationUrl(OAuthProvider provider, String state) {
@@ -84,9 +98,9 @@ public class OAuthService {
 
         String email = normalizeEmail(profile.email());
         AppUser user = email.isBlank()
-                ? createOAuthUser(availableEmail(syntheticEmail(provider, profile.providerUserId())), profile.nickname())
+                ? createOAuthUser(availableEmail(syntheticEmail(provider, profile.providerUserId())), uniqueProviderNickname(provider))
                 : userMapper.findActiveByEmail(email)
-                        .orElseGet(() -> createOAuthUser(availableEmail(email), profile.nickname()));
+                        .orElseGet(() -> createOAuthUser(availableEmail(email), uniqueProviderNickname(provider)));
 
         userMapper.insertOAuthAccount(user.getUserId(), provider, profile.providerUserId(), email.isBlank() ? null : email);
         return user;
@@ -117,6 +131,26 @@ public class OAuthService {
 
     private String normalizeNickname(String nickname) {
         return nickname == null || nickname.isBlank() ? "SLAP 사용자" : nickname.trim();
+    }
+
+    private String providerNickname(String provider) {
+        return switch (provider) {
+            case "KAKAO" -> "카카오여행자";
+            case "NAVER" -> "네이버여행자";
+            case "GOOGLE" -> "구글여행자";
+            default -> "SLAP여행자";
+        };
+    }
+
+    private String uniqueProviderNickname(String provider) {
+        String baseNickname = providerNickname(provider);
+        for (int attempt = 0; attempt < 100; attempt++) {
+            String nickname = baseNickname + String.format("%04d", secureRandom.nextInt(10_000));
+            if (!userMapper.existsActiveByNickname(nickname)) {
+                return nickname;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Could not create unique OAuth nickname");
     }
 
     private String syntheticEmail(String provider, String providerUserId) {

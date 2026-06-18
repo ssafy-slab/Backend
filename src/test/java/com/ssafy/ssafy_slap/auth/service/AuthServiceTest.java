@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.auth.service;
 
 import com.ssafy.ssafy_slap.auth.dto.SignupRequest;
+import com.ssafy.ssafy_slap.auth.dto.PasswordResetRequest;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class AuthServiceTest {
@@ -107,5 +109,114 @@ class AuthServiceTest {
         assertThat(response.user().nickname()).isEqualTo("tester");
         assertThat(response.user().email()).isEqualTo("test@example.com");
         assertThat(response.accessToken()).isEqualTo("access-token");
+    }
+
+    @Test
+    void resetsPasswordForActiveLocalAccount() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+        AppUser user = new AppUser(
+                10L, "test@example.com", "encoded-old", "tester", "USER", "ACTIVE",
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        when(userMapper.findActiveByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPassword2")).thenReturn("encoded-new");
+
+        authService.resetPassword(new PasswordResetRequest(" TEST@example.com ", "newPassword2"));
+
+        verify(userMapper).updatePasswordHash(10L, "encoded-new");
+    }
+
+    @Test
+    void rejectsPasswordResetForUnknownEmail() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+
+        when(userMapper.findActiveByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.resetPassword(
+                new PasswordResetRequest("missing@example.com", "newPassword2")
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Local account not found");
+
+        verify(userMapper, never()).updatePasswordHash(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void rejectsPasswordResetForOAuthAccount() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+        AppUser user = new AppUser(
+                10L, "oauth@example.com", null, "tester", "USER", "ACTIVE",
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        when(userMapper.findActiveByEmail("oauth@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.resetPassword(
+                new PasswordResetRequest("oauth@example.com", "newPassword2")
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("OAuth account");
+
+        verify(userMapper, never()).updatePasswordHash(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void verifiesActiveLocalAccountBeforePasswordReset() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+        AppUser user = new AppUser(
+                10L, "test@example.com", "encoded-password", "tester", "USER", "ACTIVE",
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        when(userMapper.findActiveByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        authService.verifyPasswordResetEmail(" TEST@example.com ");
+
+        verify(userMapper).findActiveByEmail("test@example.com");
+    }
+
+    @Test
+    void rejectsUnknownEmailBeforePasswordReset() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+
+        when(userMapper.findActiveByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.verifyPasswordResetEmail("missing@example.com"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Local account not found");
+    }
+
+    @Test
+    void rejectsOAuthEmailBeforePasswordReset() {
+        UserMapper userMapper = mock(UserMapper.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        AuthService authService = new AuthService(userMapper, passwordEncoder, tokenProvider);
+        AppUser user = new AppUser(
+                10L, "oauth@example.com", null, "tester", "USER", "ACTIVE",
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+
+        when(userMapper.findActiveByEmail("oauth@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.verifyPasswordResetEmail("oauth@example.com"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("OAuth account");
     }
 }
