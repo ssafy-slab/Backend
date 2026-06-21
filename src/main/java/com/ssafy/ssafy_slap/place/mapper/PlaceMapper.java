@@ -21,6 +21,7 @@ public interface PlaceMapper {
             @Param("category") String category,
             @Param("regionId") Long regionId,
             @Param("searchTokens") List<PlaceSearchToken> searchTokens,
+            @Param("sort") String sort,
             @Param("size") int size,
             @Param("offset") int offset
     );

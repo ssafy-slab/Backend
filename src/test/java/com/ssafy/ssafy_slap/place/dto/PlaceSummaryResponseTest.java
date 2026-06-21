@@ -24,6 +24,8 @@ class PlaceSummaryResponseTest {
                 "https://example.com/thumb.jpg",
                 "https://example.com/thumb.jpg",
                 "https://example.com/original.jpg",
+                java.math.BigDecimal.ZERO,
+                0L,
                 null,
                 null
         );

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.review.mapper.ReviewMapper">
+
+    <select id="existsPlace" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM PLACE WHERE place_id = #{placeId})
+    </select>
+
+    <select id="existsByPlaceAndUser" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM PLACE_REVIEW
+            WHERE place_id = #{placeId}
+              AND user_id = #{userId}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
+    <insert id="insert">
+        INSERT INTO PLACE_REVIEW (place_id, user_id, rating, content, status)
+        VALUES (#{placeId}, #{userId}, #{rating}, #{content}, 'ACTIVE')
+    </insert>
+
+    <update id="update">
+        UPDATE PLACE_REVIEW
+        SET rating = #{rating},
+            content = #{content},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE place_id = #{placeId}
+          AND user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <delete id="delete">
+        DELETE FROM PLACE_REVIEW
+        WHERE place_id = #{placeId}
+          AND user_id = #{userId}
+    </delete>
+
+    <sql id="reviewColumns">
+        pr.review_id AS reviewId,
+        pr.user_id AS userId,
+        u.nickname AS authorNickname,
+        pr.rating AS rating,
+        pr.content AS content,
+        pr.created_at AS createdAt,
+        pr.updated_at AS updatedAt
+    </sql>
+
+    <select id="findByPlace" resultType="com.ssafy.ssafy_slap.review.dto.PlaceReviewResponse">
+        SELECT
+            <include refid="reviewColumns"/>,
+            CASE
+                WHEN #{currentUserId} IS NOT NULL AND pr.user_id = #{currentUserId} THEN TRUE
+                ELSE FALSE
+            END AS mine
+        FROM PLACE_REVIEW pr
+        JOIN APP_USER u ON u.user_id = pr.user_id
+        WHERE pr.place_id = #{placeId}
+          AND pr.status = 'ACTIVE'
+        ORDER BY pr.created_at DESC, pr.review_id DESC
+    </select>
+
+    <select id="findByPlaceAndUser" resultType="com.ssafy.ssafy_slap.review.dto.PlaceReviewResponse">
+        SELECT
+            <include refid="reviewColumns"/>,
+            TRUE AS mine
+        FROM PLACE_REVIEW pr
+        JOIN APP_USER u ON u.user_id = pr.user_id
+        WHERE pr.place_id = #{placeId}
+          AND pr.user_id = #{userId}
+          AND pr.status = 'ACTIVE'
+    </select>
+
+    <select id="averageRating" resultType="java.math.BigDecimal">
+        SELECT ROUND(AVG(rating), 1)
+        FROM PLACE_REVIEW
+        WHERE place_id = #{placeId}
+          AND status = 'ACTIVE'
+    </select>
+
+    <select id="countReviews" resultType="long">
+        SELECT COUNT(*)
+        FROM PLACE_REVIEW
+        WHERE place_id = #{placeId}
+          AND status = 'ACTIVE'
+    </select>
+
+    <select id="findByUser" resultType="com.ssafy.ssafy_slap.review.dto.MyPlaceReviewResponse">
+        SELECT
+            pr.review_id AS reviewId,
+            p.place_id AS placeId,
+            p.place_name AS placeName,
+            p.category AS category,
+            COALESCE(NULLIF(p.thumbnail_url, ''), NULLIF(p.image_url, ''), '/images/default-place.svg') AS thumbnailImageUrl,
+            pr.rating AS rating,
+            pr.content AS content,
+            pr.created_at AS createdAt,
+            pr.updated_at AS updatedAt
+        FROM PLACE_REVIEW pr
+        JOIN PLACE p ON p.place_id = pr.place_id
+        WHERE pr.user_id = #{userId}
+          AND pr.status = 'ACTIVE'
+        ORDER BY pr.created_at DESC, pr.review_id DESC
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
+
+    <select id="countByUser" resultType="long">
+        SELECT COUNT(*)
+        FROM PLACE_REVIEW
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </select>
+</mapper>

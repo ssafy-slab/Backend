@@ -14,7 +14,7 @@ class PlaceServiceTest {
         PlaceMapper placeMapper = mock(PlaceMapper.class);
         PlaceService placeService = new PlaceService(placeMapper);
 
-        PlaceSearchRequest request = new PlaceSearchRequest("레저스포츠", null, null, 0, 20);
+        PlaceSearchRequest request = new PlaceSearchRequest("레저스포츠", null, null, null, 0, 20);
 
         assertThat(placeService.normalizeCategory(request.category())).isEqualTo("레포츠");
     }
@@ -24,7 +24,7 @@ class PlaceServiceTest {
         PlaceMapper placeMapper = mock(PlaceMapper.class);
         PlaceService placeService = new PlaceService(placeMapper);
 
-        PlaceSearchRequest request = new PlaceSearchRequest(null, null, null, 2, 30);
+        PlaceSearchRequest request = new PlaceSearchRequest(null, null, null, null, 2, 30);
 
         assertThat(placeService.toOffset(request)).isEqualTo(60);
     }
@@ -45,5 +45,13 @@ class PlaceServiceTest {
         assertThat(tokens.get(1).category()).isNull();
         assertThat(tokens.get(1).cat3()).isEqualTo("A05020900");
         assertThat(tokens.get(1).lclsSystm2()).isEqualTo("FD05");
+    }
+
+    @Test
+    void acceptsOnlySupportedReviewSorts() {
+        assertThat(new PlaceSearchRequest(null, null, null, "recommended", 0, 20).normalizedSort()).isEqualTo("recommended");
+        assertThat(new PlaceSearchRequest(null, null, null, "reviewCount", 0, 20).normalizedSort()).isEqualTo("reviewCount");
+        assertThat(new PlaceSearchRequest(null, null, null, "rating", 0, 20).normalizedSort()).isEqualTo("rating");
+        assertThat(new PlaceSearchRequest(null, null, null, "unknown", 0, 20).normalizedSort()).isNull();
     }
 }

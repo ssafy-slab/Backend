@@ -19,6 +19,8 @@ public record PlaceSummaryResponse(
         String displayImageUrl,
         String thumbnailImageUrl,
         String detailImageUrl,
+        BigDecimal averageRating,
+        Long reviewCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

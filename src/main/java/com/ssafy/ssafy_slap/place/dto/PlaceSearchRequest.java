@@ -4,6 +4,7 @@ public record PlaceSearchRequest(
         String category,
         Long regionId,
         String keyword,
+        String sort,
         Integer page,
         Integer size
 ) {
@@ -16,5 +17,12 @@ public record PlaceSearchRequest(
             return 20;
         }
         return Math.min(size, 50);
+    }
+
+    public String normalizedSort() {
+        if ("recommended".equals(sort) || "reviewCount".equals(sort) || "rating".equals(sort)) {
+            return sort;
+        }
+        return null;
     }
 }

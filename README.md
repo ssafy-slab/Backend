@@ -1,106 +1,128 @@
 # SLAP Backend
 
-Spring Boot, MyBatis, MySQL 기반의 SLAP 여행 서비스 백엔드입니다.
+여행지 탐색, 일정 관리, 리뷰, 날씨·주변 편의시설 정보를 제공하는 SLAP 서비스의 Spring Boot API 서버입니다.
 
 ## 주요 기능
 
-- 여행지 목록/상세 조회
-- 카테고리, 지역, 키워드 기반 여행지 검색
-- 탐색 필터용 카테고리/지역 조회
-- 여행지 좌표 기반 기상청 단기예보 조회
-- 이미지 URL 목적별 응답
-  - 목록용 썸네일: `thumbnailImageUrl`
-  - 상세용 원본 이미지: `detailImageUrl`
+- 이메일 회원가입·로그인과 JWT 인증
+- Kakao, Google, Naver OAuth 로그인
+- 프로필·비밀번호·회원 탈퇴 관리
+- 여행지 검색 및 카테고리·지역 필터
+- 여행지 평균 별점과 리뷰 수 조회
+- 추천순·리뷰 많은 순·평점 높은 순 정렬
+- 사용자당 장소별 리뷰 1개 등록·수정·삭제
+- 마이페이지 내 리뷰 조회 및 10개 단위 페이지네이션
+- 기상청 단기예보와 Kakao 주변 편의시설 조회
+- 여행 일정·멤버·초대·스케줄 API
+
+## 기술 스택
+
+- Java 17
+- Spring Boot 4
+- Spring Security
+- MyBatis
+- MySQL
+- JUnit 5, Mockito
 
 ## 환경 변수
 
-실행 전에 다음 환경변수를 설정해야 합니다.
+필수:
 
 ```powershell
-$env:DB_URL="jdbc:mysql://host:3306/database?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=utf8"
+$env:DB_URL="jdbc:mysql://localhost:3306/slap?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=utf8"
 $env:DB_USERNAME="your_db_username"
 $env:DB_PASSWORD="your_db_password"
-$env:KMA_SERVICE_KEY="your_kma_service_key"
 ```
 
-- `DB_URL`: MySQL JDBC URL
-- `DB_USERNAME`: DB 사용자명
-- `DB_PASSWORD`: DB 비밀번호
-- `KMA_SERVICE_KEY`: 공공데이터포털 기상청 단기예보 조회서비스 인증키
+선택:
 
-`KMA_SERVICE_KEY`가 비어 있으면 서버는 정상 실행되지만, 날씨 API는 `available=false`로 응답합니다.
+```powershell
+$env:JWT_SECRET="change-me"
+$env:KMA_SERVICE_KEY="your_kma_service_key"
+$env:KAKAO_REST_API_KEY="your_kakao_rest_api_key"
+$env:OAUTH_KAKAO_CLIENT_ID="..."
+$env:OAUTH_KAKAO_CLIENT_SECRET="..."
+$env:OAUTH_GOOGLE_CLIENT_ID="..."
+$env:OAUTH_GOOGLE_CLIENT_SECRET="..."
+$env:OAUTH_NAVER_CLIENT_ID="..."
+$env:OAUTH_NAVER_CLIENT_SECRET="..."
+```
 
-## 실행
+외부 API 키가 없으면 해당 날씨·주변 시설·OAuth 기능만 제한됩니다.
 
-Windows PowerShell:
+## 실행과 테스트
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-서버 기본 주소는 `http://localhost:8080`입니다.
-
-## 테스트
+기본 주소는 `http://localhost:8080`입니다.
 
 ```powershell
 .\mvnw.cmd test
 ```
 
+Windows에서 Maven Wrapper 실행에 문제가 있으면 설치된 Maven의 `mvn test`를 사용할 수 있습니다.
+
 ## 주요 API
 
-### 여행지 목록 조회
+### 인증·사용자
+
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `POST` | `/api/auth/signup` | 회원가입 |
+| `POST` | `/api/auth/login` | 로그인 |
+| `GET` | `/api/oauth/{provider}/authorize` | OAuth 로그인 시작 |
+| `GET` | `/api/users/me` | 내 정보 조회 |
+| `PATCH` | `/api/users/me` | 프로필 수정 |
+| `PATCH` | `/api/users/me/password` | 비밀번호 변경 |
+
+### 여행지
 
 ```http
-GET /api/places?page=0&size=20
+GET /api/places?category=관광지&regionId=1&keyword=서울&sort=recommended&page=0&size=20
 ```
 
-선택 query parameter:
+정렬값:
 
-- `category`: 카테고리
-- `regionId`: 지역 ID
-- `keyword`: 검색어
-- `page`: 페이지 번호
-- `size`: 페이지 크기
+- 생략: 기존 검색 관련도·기본 순서
+- `recommended`: 보정 평점과 리뷰 수 기반 추천순
+- `reviewCount`: 리뷰 많은 순
+- `rating`: 평점 높은 순
 
-기본 정렬은 `place_id ASC`입니다. 키워드 검색 시에는 검색 점수 정렬이 먼저 적용되고, 같은 점수에서는 `place_id ASC`가 적용됩니다.
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `GET` | `/api/places` | 여행지 검색·필터·정렬 |
+| `GET` | `/api/places/{placeId}` | 여행지 상세 |
+| `GET` | `/api/places/filters` | 카테고리·지역 필터 |
+| `GET` | `/api/places/{placeId}/weather` | 날씨와 예보 |
+| `GET` | `/api/places/{placeId}/nearby-facilities` | 주변 편의시설 |
 
-### 여행지 상세 조회
+### 리뷰
 
-```http
-GET /api/places/{placeId}
+| Method | Endpoint | 설명 |
+|---|---|---|
+| `GET` | `/api/places/{placeId}/reviews` | 장소 리뷰·평균 별점 조회 |
+| `POST` | `/api/places/{placeId}/reviews` | 내 리뷰 등록 |
+| `PUT` | `/api/places/{placeId}/reviews/me` | 내 리뷰 수정 |
+| `DELETE` | `/api/places/{placeId}/reviews/me` | 내 리뷰 삭제 |
+| `GET` | `/api/users/me/reviews?page=0&size=10` | 내가 작성한 리뷰 |
+
+별점은 1~5점 필수이며 리뷰 내용은 선택입니다. `(place_id, user_id)` 고유 제약으로 사용자당 장소별 리뷰 1개를 유지합니다.
+
+## 프로젝트 구조
+
+```text
+src/main/java/com/ssafy/ssafy_slap
+├─ auth
+├─ user
+├─ place
+├─ review
+├─ trip
+├─ chat
+└─ global
+
+src/main/resources
+├─ mapper
+└─ schema/schema.sql
 ```
-
-### 탐색 필터 조회
-
-```http
-GET /api/places/filters
-```
-
-카테고리와 시/도, 시/군/구 지역 목록을 반환합니다.
-
-### 여행지 날씨 조회
-
-```http
-GET /api/places/{placeId}/weather
-```
-
-place의 위도/경도를 기상청 격자 좌표로 변환한 뒤 단기예보를 조회합니다.
-
-응답 예시:
-
-```json
-{
-  "available": true,
-  "temperature": 32,
-  "feelsLikeTemperature": 32.0,
-  "precipitationProbability": 0,
-  "humidity": 35,
-  "windSpeed": 0.9,
-  "precipitationType": "없음",
-  "skyStatus": "맑음",
-  "precipitationOneHour": "강수없음",
-  "updatedAt": "2026-06-15T14:00:00"
-}
-```
-
-외부 API 호출 실패, 인증키 누락, 좌표 누락 시에는 `available=false`와 안내 메시지를 반환합니다.

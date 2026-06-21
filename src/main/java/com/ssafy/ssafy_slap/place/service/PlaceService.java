@@ -30,7 +30,7 @@ public class PlaceService {
         String category = normalizeCategory(request.category());
         List<PlaceSearchToken> searchTokens = toSearchTokens(request.keyword());
 
-        var content = placeMapper.findPlaces(category, request.regionId(), searchTokens, size, offset);
+        var content = placeMapper.findPlaces(category, request.regionId(), searchTokens, request.normalizedSort(), size, offset);
         long totalElements = placeMapper.countPlaces(category, request.regionId(), searchTokens);
         boolean hasNext = (long) offset + content.size() < totalElements;
 
