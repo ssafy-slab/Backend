@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.trip.mapper.TripMapper">
+
+    <sql id="tripColumns">
+        trip_id AS tripId,
+        owner_user_id AS ownerUserId,
+        title,
+        description,
+        trip_type AS tripType,
+        start_date AS startDate,
+        end_date AS endDate,
+        status,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+    </sql>
+
+    <sql id="tripColumnsWithAlias">
+        t.trip_id AS tripId,
+        t.owner_user_id AS ownerUserId,
+        t.title,
+        t.description,
+        t.trip_type AS tripType,
+        t.start_date AS startDate,
+        t.end_date AS endDate,
+        t.status,
+        t.created_at AS createdAt,
+        t.updated_at AS updatedAt
+    </sql>
+
+    <insert id="insertTrip" useGeneratedKeys="true" keyProperty="trip.tripId">
+        INSERT INTO TRIP (
+            owner_user_id,
+            title,
+            description,
+            trip_type,
+            start_date,
+            end_date,
+            status
+        )
+        VALUES (
+            #{trip.ownerUserId},
+            #{trip.title},
+            #{trip.description},
+            #{trip.tripType},
+            #{trip.startDate},
+            #{trip.endDate},
+            #{trip.status}
+        )
+    </insert>
+
+    <insert id="insertTripMember">
+        INSERT INTO TRIP_MEMBER (
+            trip_id,
+            user_id,
+            member_role,
+            invite_status,
+            joined_at
+        )
+        VALUES (
+            #{tripId},
+            #{userId},
+            #{memberRole},
+            #{inviteStatus},
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <select id="findTripById" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
+        SELECT
+        <include refid="tripColumns"/>
+        FROM TRIP
+        WHERE trip_id = #{tripId}
+    </select>
+
+    <select id="findAccessibleTrips" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
+        SELECT DISTINCT
+        <include refid="tripColumnsWithAlias"/>
+        FROM TRIP t
+        LEFT JOIN TRIP_MEMBER tm
+          ON tm.trip_id = t.trip_id
+         AND tm.user_id = #{userId}
+         AND tm.invite_status = 'ACCEPTED'
+        WHERE t.owner_user_id = #{userId}
+           OR tm.trip_member_id IS NOT NULL
+        ORDER BY t.updated_at DESC, t.trip_id DESC
+    </select>
+
+    <select id="findMembersByTripIds" resultType="com.ssafy.ssafy_slap.trip.domain.TripMember">
+        SELECT
+            tm.trip_member_id AS tripMemberId,
+            tm.trip_id AS tripId,
+            tm.user_id AS userId,
+            au.nickname AS nickname,
+            tm.member_role AS memberRole,
+            tm.invite_status AS inviteStatus,
+            tm.joined_at AS joinedAt
+        FROM TRIP_MEMBER tm
+        JOIN APP_USER au ON tm.user_id = au.user_id
+        WHERE tm.trip_id IN
+        <foreach collection="tripIds" item="tripId" open="(" separator="," close=")">
+            #{tripId}
+        </foreach>
+        ORDER BY tm.trip_id ASC,
+                 CASE tm.member_role WHEN 'OWNER' THEN 0 ELSE 1 END,
+                 tm.joined_at ASC,
+                 tm.trip_member_id ASC
+    </select>
+
+    <select id="findAccessibleTripById" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
+        SELECT
+        <include refid="tripColumnsWithAlias"/>
+        FROM TRIP t
+        LEFT JOIN TRIP_MEMBER tm
+          ON tm.trip_id = t.trip_id
+         AND tm.user_id = #{userId}
+         AND tm.invite_status = 'ACCEPTED'
+        WHERE t.trip_id = #{tripId}
+          AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+    </select>
+
+    <select id="existsAccessibleTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <delete id="deleteOwnedTrip">
+        DELETE FROM TRIP
+        WHERE trip_id = #{tripId}
+          AND owner_user_id = #{userId}
+    </delete>
+</mapper>

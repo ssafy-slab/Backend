@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS `VOTE`;
 DROP TABLE IF EXISTS `AI_SUGGESTION`;
 DROP TABLE IF EXISTS `CHAT_MESSAGE`;
 DROP TABLE IF EXISTS `SCHEDULE_ITEM`;
+DROP TABLE IF EXISTS `TRIP_INVITE_CODE`;
 DROP TABLE IF EXISTS `TRIP_MEMBER`;
 DROP TABLE IF EXISTS `TRIP`;
 DROP TABLE IF EXISTS `PLACE_REVIEW`;
@@ -261,6 +262,29 @@ CREATE TABLE `TRIP_MEMBER` (
     REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `TRIP_INVITE_CODE` (
+  `trip_invite_code_id` BIGINT NOT NULL AUTO_INCREMENT,
+  `trip_id` BIGINT NOT NULL,
+  `invite_code` VARCHAR(20) NOT NULL,
+  `created_by_user_id` BIGINT NOT NULL,
+  `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`trip_invite_code_id`),
+  UNIQUE KEY `uk_trip_invite_code` (`invite_code`),
+  KEY `idx_trip_invite_code_trip_status` (`trip_id`, `status`),
+  KEY `idx_trip_invite_code_creator` (`created_by_user_id`),
+  CONSTRAINT `fk_trip_invite_code_trip`
+    FOREIGN KEY (`trip_id`)
+    REFERENCES `TRIP` (`trip_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_trip_invite_code_creator`
+    FOREIGN KEY (`created_by_user_id`)
+    REFERENCES `APP_USER` (`user_id`)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `SCHEDULE_ITEM` (

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.trip.mapper.TripScheduleMapper">
+
+    <sql id="scheduleItemColumns">
+        schedule_item_id AS scheduleItemId,
+        trip_id AS tripId,
+        place_id AS placeId,
+        created_by_user_id AS createdByUserId,
+        day_no AS dayNo,
+        schedule_date AS scheduleDate,
+        start_time AS startTime,
+        end_time AS endTime,
+        title,
+        memo,
+        sort_order AS sortOrder,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+    </sql>
+
+    <select id="existsAccessibleTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <select id="existsPlace" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM PLACE
+            WHERE place_id = #{placeId}
+        )
+    </select>
+
+    <insert id="insertScheduleItem" useGeneratedKeys="true" keyProperty="item.scheduleItemId">
+        INSERT INTO SCHEDULE_ITEM (
+            trip_id,
+            place_id,
+            created_by_user_id,
+            day_no,
+            schedule_date,
+            start_time,
+            end_time,
+            title,
+            memo,
+            sort_order
+        )
+        VALUES (
+            #{item.tripId},
+            #{item.placeId},
+            #{item.createdByUserId},
+            #{item.dayNo},
+            #{item.scheduleDate},
+            #{item.startTime},
+            #{item.endTime},
+            #{item.title},
+            #{item.memo},
+            #{item.sortOrder}
+        )
+    </insert>
+
+    <select id="findScheduleItemById" resultType="com.ssafy.ssafy_slap.trip.domain.TripScheduleItem">
+        SELECT
+        <include refid="scheduleItemColumns"/>
+        FROM SCHEDULE_ITEM
+        WHERE schedule_item_id = #{scheduleItemId}
+    </select>
+
+    <delete id="deleteScheduleItem">
+        DELETE FROM SCHEDULE_ITEM
+        WHERE trip_id = #{tripId}
+          AND schedule_item_id = #{scheduleItemId}
+    </delete>
+</mapper>

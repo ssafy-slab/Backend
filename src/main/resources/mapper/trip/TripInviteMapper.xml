@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.trip.mapper.TripInviteMapper">
+
+    <sql id="tripColumns">
+        trip_id AS tripId,
+        owner_user_id AS ownerUserId,
+        title,
+        description,
+        trip_type AS tripType,
+        start_date AS startDate,
+        end_date AS endDate,
+        status,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+    </sql>
+
+    <sql id="tripColumnsWithAlias">
+        t.trip_id AS tripId,
+        t.owner_user_id AS ownerUserId,
+        t.title,
+        t.description,
+        t.trip_type AS tripType,
+        t.start_date AS startDate,
+        t.end_date AS endDate,
+        t.status,
+        t.created_at AS createdAt,
+        t.updated_at AS updatedAt
+    </sql>
+
+    <sql id="inviteCodeColumns">
+        trip_invite_code_id AS tripInviteCodeId,
+        trip_id AS tripId,
+        invite_code AS inviteCode,
+        created_by_user_id AS createdByUserId,
+        status,
+        created_at AS createdAt
+    </sql>
+
+    <select id="findTripById" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
+        SELECT
+        <include refid="tripColumns"/>
+        FROM TRIP
+        WHERE trip_id = #{tripId}
+    </select>
+
+    <select id="findActiveInviteCodeByTripId" resultType="com.ssafy.ssafy_slap.trip.domain.TripInviteCode">
+        SELECT
+        <include refid="inviteCodeColumns"/>
+        FROM TRIP_INVITE_CODE
+        WHERE trip_id = #{tripId}
+          AND status = 'ACTIVE'
+        ORDER BY created_at DESC, trip_invite_code_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="existsInviteCode" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP_INVITE_CODE
+            WHERE invite_code = #{inviteCode}
+        )
+    </select>
+
+    <insert id="insertInviteCode" useGeneratedKeys="true" keyProperty="inviteCode.tripInviteCodeId">
+        INSERT INTO TRIP_INVITE_CODE (
+            trip_id,
+            invite_code,
+            created_by_user_id,
+            status
+        )
+        VALUES (
+            #{inviteCode.tripId},
+            #{inviteCode.inviteCode},
+            #{inviteCode.createdByUserId},
+            #{inviteCode.status}
+        )
+    </insert>
+
+    <select id="findTripByInviteCode" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
+        SELECT
+        <include refid="tripColumnsWithAlias"/>
+        FROM TRIP_INVITE_CODE tic
+        JOIN TRIP t ON tic.trip_id = t.trip_id
+        WHERE tic.invite_code = #{inviteCode}
+          AND tic.status = 'ACTIVE'
+    </select>
+
+    <select id="existsTripMember" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP_MEMBER
+            WHERE trip_id = #{tripId}
+              AND user_id = #{userId}
+        )
+    </select>
+
+    <insert id="insertTripMember">
+        INSERT INTO TRIP_MEMBER (
+            trip_id,
+            user_id,
+            member_role,
+            invite_status,
+            joined_at
+        )
+        VALUES (
+            #{tripId},
+            #{userId},
+            #{memberRole},
+            #{inviteStatus},
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+</mapper>
