@@ -1,0 +1,65 @@
+name: Deploy to cloudtype
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Connect deploy key
+        uses: cloudtype-github-actions/connect@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          ghtoken: ${{ secrets.GHP_TOKEN }}
+
+      - name: Deploy
+        uses: cloudtype-github-actions/deploy@v1
+        with:
+          token: ${{ secrets.CLOUDTYPE_TOKEN }}
+          project: ssafy_slap/backend
+          stage: main
+          yaml: >
+            name: ssafy-slap-backend
+
+            app: java@17
+
+            options:
+              ports: 8080
+              env:
+                - name: DB_PASSWORD
+                  value: ${{ secrets.DB_PASSWORD }}
+                - name: DB_URL
+                  value: ${{ secrets.DB_URL }}
+                - name: DB_USERNAME
+                  value: ${{ secrets.DB_USERNAME }}
+                - name: JWT_SECRET
+                  value: ${{ secrets.JWT_SECRET }}
+                - name: KAKAO_REST_API_KEY
+                  value: ${{ secrets.KAKAO_REST_API_KEY }}
+                - name: KMA_SERVICE_KEY
+                  value: ${{ secrets.KMA_SERVICE_KEY }}
+                - name: OAUTH_GOOGLE_CLIENT_ID
+                  value: ${{ secrets.OAUTH_GOOGLE_CLIENT_ID }}
+                - name: OAUTH_GOOGLE_CLIENT_SECRET
+                  value: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+                - name: OAUTH_KAKAO_CLIENT_ID
+                  value: ${{ secrets.OAUTH_KAKAO_CLIENT_ID }}
+                - name: OAUTH_KAKAO_CLIENT_SECRET
+                  value: ${{ secrets.OAUTH_KAKAO_CLIENT_SECRET }}
+                - name: OAUTH_NAVER_CLIENT_ID
+                  value: ${{ secrets.OAUTH_NAVER_CLIENT_ID }}
+                - name: OAUTH_NAVER_CLIENT_SECRET
+                  value: ${{ secrets.OAUTH_NAVER_CLIENT_SECRET }}
+              buildenv: []
+            context:
+              git:
+                url: git@github.com:${{ github.repository }}.git
+                ref: ${{ github.ref }}
+              preset: java-springboot
