@@ -1,6 +1,8 @@
 package com.ssafy.ssafy_slap.chat.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.ssafy_slap.auth.service.JwtPrincipal;
+import com.ssafy.ssafy_slap.auth.service.JwtTokenProvider;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageRequest;
 import com.ssafy.ssafy_slap.chat.dto.ChatWebSocketRequest;
 import com.ssafy.ssafy_slap.chat.dto.ChatWebSocketResponse;
@@ -11,6 +13,7 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
@@ -18,22 +21,27 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final ChatService chatService;
     private final ChatRoomSessionRegistry sessionRegistry;
+    private final JwtTokenProvider tokenProvider;
 
     public ChatWebSocketHandler(
             ChatService chatService,
-            ChatRoomSessionRegistry sessionRegistry
+            ChatRoomSessionRegistry sessionRegistry,
+            JwtTokenProvider tokenProvider
     ) {
         this.objectMapper = new ObjectMapper().findAndRegisterModules();
         this.chatService = chatService;
         this.sessionRegistry = sessionRegistry;
+        this.tokenProvider = tokenProvider;
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         try {
+            Long authenticatedUserId = authenticatedUserId(session);
             ChatWebSocketRequest request = objectMapper.readValue(message.getPayload(), ChatWebSocketRequest.class);
             if (request.isSubscribe()) {
                 validateTripId(request.tripId());
+                chatService.validateTripAccess(authenticatedUserId, request.tripId());
                 sessionRegistry.subscribe(request.tripId(), session);
                 session.sendMessage(toTextMessage(ChatWebSocketResponse.subscribed(request.tripId())));
                 return;
@@ -42,9 +50,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 throw new IllegalArgumentException("unsupported websocket message type: " + request.type());
             }
 
-            var response = chatService.createTextMessage(new ChatMessageRequest(
+            var response = chatService.createTextMessage(authenticatedUserId, new ChatMessageRequest(
                     request.tripId(),
-                    request.senderUserId(),
+                    authenticatedUserId,
                     request.content()
             ));
             sessionRegistry.subscribe(response.tripId(), session);
@@ -66,6 +74,26 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private void validateTripId(Long tripId) {
         if (tripId == null) {
             throw new IllegalArgumentException("tripId is required");
+        }
+    }
+
+    private Long authenticatedUserId(WebSocketSession session) {
+        String token = UriComponentsBuilder.fromUri(session.getUri())
+                .build()
+                .getQueryParams()
+                .getFirst("token");
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("Authentication is required");
+        }
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        try {
+            JwtPrincipal principal = tokenProvider.parse(token);
+            return principal.userId();
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid authentication token");
         }
     }
 }

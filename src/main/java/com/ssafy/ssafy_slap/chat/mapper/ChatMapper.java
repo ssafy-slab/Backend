@@ -13,6 +13,11 @@ public interface ChatMapper {
 
     boolean existsUser(@Param("userId") Long userId);
 
+    boolean existsAccessibleTrip(
+            @Param("tripId") Long tripId,
+            @Param("userId") Long userId
+    );
+
     void insertMessage(@Param("message") ChatMessage message);
 
     ChatMessage findMessageById(@Param("messageId") Long messageId);

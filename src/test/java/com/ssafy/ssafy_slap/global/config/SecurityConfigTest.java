@@ -32,6 +32,7 @@ class SecurityConfigTest {
         String securityConfig = Files.readString(Path.of("src/main/java/com/ssafy/ssafy_slap/global/config/SecurityConfig.java"));
 
         assertThat(securityConfig).contains(".requestMatchers(\"/api/trips/**\").authenticated()");
+        assertThat(securityConfig).contains(".requestMatchers(\"/api/chats/**\").authenticated()");
         assertThat(securityConfig).contains(".anyRequest().permitAll()");
     }
 }

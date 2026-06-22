@@ -22,13 +22,13 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatMessageResponse createTextMessage(ChatMessageRequest request) {
-        validateRequest(request);
+    public ChatMessageResponse createTextMessage(Long authenticatedUserId, ChatMessageRequest request) {
+        validateRequest(authenticatedUserId, request);
 
         ChatMessage message = new ChatMessage(
                 null,
                 request.tripId(),
-                request.senderUserId(),
+                authenticatedUserId,
                 null,
                 "TEXT",
                 request.content().trim(),
@@ -40,10 +40,11 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessageResponse> findRecentMessages(Long tripId, Integer limit) {
+    public List<ChatMessageResponse> findRecentMessages(Long authenticatedUserId, Long tripId, Integer limit) {
         if (tripId == null) {
             throw new IllegalArgumentException("tripId is required");
         }
+        validateTripAccess(authenticatedUserId, tripId);
         int normalizedLimit = normalizeLimit(limit);
         return chatMapper.findRecentMessages(tripId, normalizedLimit)
                 .stream()
@@ -51,21 +52,36 @@ public class ChatService {
                 .toList();
     }
 
-    private void validateRequest(ChatMessageRequest request) {
+    @Transactional(readOnly = true)
+    public void validateTripAccess(Long authenticatedUserId, Long tripId) {
+        if (tripId == null) {
+            throw new IllegalArgumentException("tripId is required");
+        }
+        if (authenticatedUserId == null) {
+            throw new IllegalArgumentException("senderUserId is required");
+        }
+        validateAccessibleTrip(tripId, authenticatedUserId);
+    }
+
+    private void validateRequest(Long authenticatedUserId, ChatMessageRequest request) {
         if (request.tripId() == null) {
             throw new IllegalArgumentException("tripId is required");
         }
-        if (request.senderUserId() == null) {
+        if (authenticatedUserId == null) {
             throw new IllegalArgumentException("senderUserId is required");
         }
         if (request.content() == null || request.content().trim().isEmpty()) {
             throw new IllegalArgumentException("content must not be blank");
         }
-        if (!chatMapper.existsTrip(request.tripId())) {
-            throw new IllegalArgumentException("trip not found: " + request.tripId());
+        if (!chatMapper.existsUser(authenticatedUserId)) {
+            throw new IllegalArgumentException("user not found: " + authenticatedUserId);
         }
-        if (!chatMapper.existsUser(request.senderUserId())) {
-            throw new IllegalArgumentException("user not found: " + request.senderUserId());
+        validateTripAccess(authenticatedUserId, request.tripId());
+    }
+
+    private void validateAccessibleTrip(Long tripId, Long userId) {
+        if (!chatMapper.existsAccessibleTrip(tripId, userId)) {
+            throw new IllegalArgumentException("trip not accessible: " + tripId);
         }
     }
 

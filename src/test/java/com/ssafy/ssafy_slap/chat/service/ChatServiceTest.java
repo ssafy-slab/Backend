@@ -21,9 +21,9 @@ class ChatServiceTest {
     void createsTextMessageWithTrimmedContent() {
         ChatMapper chatMapper = mock(ChatMapper.class);
         ChatService chatService = new ChatService(chatMapper);
-        ChatMessageRequest request = new ChatMessageRequest(1L, 2L, "  hello  ");
+        ChatMessageRequest request = new ChatMessageRequest(1L, 99L, "  hello  ");
 
-        when(chatMapper.existsTrip(1L)).thenReturn(true);
+        when(chatMapper.existsAccessibleTrip(1L, 2L)).thenReturn(true);
         when(chatMapper.existsUser(2L)).thenReturn(true);
         doAnswer(invocation -> {
             ChatMessage message = invocation.getArgument(0);
@@ -40,7 +40,7 @@ class ChatServiceTest {
                 LocalDateTime.of(2026, 6, 16, 10, 0)
         ));
 
-        var response = chatService.createTextMessage(request);
+        var response = chatService.createTextMessage(2L, request);
 
         assertThat(response.messageId()).isEqualTo(10L);
         assertThat(response.content()).isEqualTo("hello");
@@ -58,20 +58,33 @@ class ChatServiceTest {
         ChatMapper chatMapper = mock(ChatMapper.class);
         ChatService chatService = new ChatService(chatMapper);
 
-        assertThatThrownBy(() -> chatService.createTextMessage(new ChatMessageRequest(1L, 2L, " ")))
+        assertThatThrownBy(() -> chatService.createTextMessage(2L, new ChatMessageRequest(1L, 2L, " ")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("content must not be blank");
     }
 
     @Test
-    void rejectsMissingTrip() {
+    void rejectsInaccessibleTrip() {
         ChatMapper chatMapper = mock(ChatMapper.class);
         ChatService chatService = new ChatService(chatMapper);
 
-        when(chatMapper.existsTrip(1L)).thenReturn(false);
+        when(chatMapper.existsUser(2L)).thenReturn(true);
+        when(chatMapper.existsAccessibleTrip(1L, 2L)).thenReturn(false);
 
-        assertThatThrownBy(() -> chatService.createTextMessage(new ChatMessageRequest(1L, 2L, "hello")))
+        assertThatThrownBy(() -> chatService.createTextMessage(2L, new ChatMessageRequest(1L, 99L, "hello")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("trip not found: 1");
+                .hasMessage("trip not accessible: 1");
+    }
+
+    @Test
+    void rejectsRecentMessagesWhenTripIsInaccessible() {
+        ChatMapper chatMapper = mock(ChatMapper.class);
+        ChatService chatService = new ChatService(chatMapper);
+
+        when(chatMapper.existsAccessibleTrip(1L, 2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> chatService.findRecentMessages(2L, 1L, 50))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("trip not accessible: 1");
     }
 }
