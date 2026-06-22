@@ -134,6 +134,17 @@
         )
     </select>
 
+    <update id="updateOwnedTrip">
+        UPDATE TRIP
+        SET title = #{title},
+            description = #{description},
+            trip_type = #{tripType},
+            start_date = #{startDate},
+            end_date = #{endDate}
+        WHERE trip_id = #{tripId}
+          AND owner_user_id = #{userId}
+    </update>
+
     <delete id="deleteOwnedTrip">
         DELETE FROM TRIP
         WHERE trip_id = #{tripId}

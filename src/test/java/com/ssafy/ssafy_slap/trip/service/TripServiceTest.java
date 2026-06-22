@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.trip.service;
 import com.ssafy.ssafy_slap.trip.domain.Trip;
 import com.ssafy.ssafy_slap.trip.domain.TripMember;
 import com.ssafy.ssafy_slap.trip.dto.TripCreateRequest;
+import com.ssafy.ssafy_slap.trip.dto.TripUpdateRequest;
 import com.ssafy.ssafy_slap.trip.mapper.TripMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -167,6 +168,83 @@ class TripServiceTest {
         when(mapper.deleteOwnedTrip(7L, 10L)).thenReturn(0);
 
         assertThatThrownBy(() -> service.deleteTrip(7L, 10L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void updatesOwnedTrip() {
+        TripMapper mapper = mock(TripMapper.class);
+        TripService service = new TripService(mapper);
+        TripUpdateRequest request = new TripUpdateRequest(
+                "  Seoul trip  ",
+                "  autumn plan  ",
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5)
+        );
+        when(mapper.updateOwnedTrip(
+                7L,
+                10L,
+                "Seoul trip",
+                "autumn plan",
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5)
+        )).thenReturn(1);
+        when(mapper.findTripById(7L)).thenReturn(new Trip(
+                7L,
+                10L,
+                "Seoul trip",
+                "autumn plan",
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5),
+                "PLANNING",
+                LocalDateTime.of(2026, 6, 17, 10, 0),
+                LocalDateTime.of(2026, 6, 17, 11, 0)
+        ));
+
+        var response = service.updateTrip(7L, 10L, request);
+
+        assertThat(response.title()).isEqualTo("Seoul trip");
+        assertThat(response.description()).isEqualTo("autumn plan");
+        assertThat(response.tripType()).isEqualTo("PERSONAL");
+        verify(mapper).updateOwnedTrip(
+                7L,
+                10L,
+                "Seoul trip",
+                "autumn plan",
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5)
+        );
+    }
+
+    @Test
+    void rejectsUpdateWhenUserIsNotOwner() {
+        TripMapper mapper = mock(TripMapper.class);
+        TripService service = new TripService(mapper);
+        TripUpdateRequest request = new TripUpdateRequest(
+                "Seoul trip",
+                null,
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5)
+        );
+        when(mapper.updateOwnedTrip(
+                7L,
+                10L,
+                "Seoul trip",
+                null,
+                "PERSONAL",
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 5)
+        )).thenReturn(0);
+        when(mapper.existsAccessibleTrip(7L, 10L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.updateTrip(7L, 10L, request))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
                 .isEqualTo(HttpStatus.FORBIDDEN);

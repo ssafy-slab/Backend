@@ -66,6 +66,8 @@ Windows에서 Maven Wrapper 실행에 문제가 있으면 설치된 Maven의 `mv
 
 ## 주요 API
 
+Trip API details: [docs/trip-api.md](docs/trip-api.md)
+
 ### 인증·사용자
 
 | Method | Endpoint | 설명 |

@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.cors.CorsConfiguration;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -22,5 +25,13 @@ class SecurityConfigTest {
         assertThat(configuration.getAllowedOrigins()).contains("http://localhost:5173");
         assertThat(configuration.getAllowedMethods()).contains("GET");
         assertThat(configuration.getAllowedHeaders()).contains("*");
+    }
+
+    @Test
+    void requiresAuthenticationForTripApiRequests() throws Exception {
+        String securityConfig = Files.readString(Path.of("src/main/java/com/ssafy/ssafy_slap/global/config/SecurityConfig.java"));
+
+        assertThat(securityConfig).contains(".requestMatchers(\"/api/trips/**\").authenticated()");
+        assertThat(securityConfig).contains(".anyRequest().permitAll()");
     }
 }

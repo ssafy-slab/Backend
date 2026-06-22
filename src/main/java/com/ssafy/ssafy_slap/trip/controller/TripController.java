@@ -8,6 +8,7 @@ import com.ssafy.ssafy_slap.trip.dto.TripListResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleResponse;
+import com.ssafy.ssafy_slap.trip.dto.TripUpdateRequest;
 import com.ssafy.ssafy_slap.trip.service.TripInviteService;
 import com.ssafy.ssafy_slap.trip.service.TripScheduleService;
 import com.ssafy.ssafy_slap.trip.service.TripService;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -64,6 +66,15 @@ public class TripController {
             @PathVariable Long tripId
     ) {
         return tripService.findTrip(tripId, currentUserId(authentication));
+    }
+
+    @PutMapping("/{tripId}")
+    public TripResponse updateTrip(
+            Authentication authentication,
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripUpdateRequest request
+    ) {
+        return tripService.updateTrip(tripId, currentUserId(authentication), request);
     }
 
     @DeleteMapping("/{tripId}")

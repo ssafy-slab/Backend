@@ -5,6 +5,7 @@ import com.ssafy.ssafy_slap.trip.domain.TripMember;
 import com.ssafy.ssafy_slap.trip.dto.TripCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripListResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
+import com.ssafy.ssafy_slap.trip.dto.TripUpdateRequest;
 import com.ssafy.ssafy_slap.trip.mapper.TripMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -75,6 +76,30 @@ public class TripService {
     }
 
     @Transactional
+    public TripResponse updateTrip(Long tripId, Long userId, TripUpdateRequest request) {
+        validateTripId(tripId);
+        validateUserId(userId);
+        validateUpdateRequest(request);
+
+        int updated = tripMapper.updateOwnedTrip(
+                tripId,
+                userId,
+                normalizeRequiredText(request.title(), "title is required"),
+                normalizeText(request.description()),
+                normalizeText(request.tripType()),
+                request.startDate(),
+                request.endDate()
+        );
+        if (updated == 1) {
+            return TripResponse.from(tripMapper.findTripById(tripId));
+        }
+        if (tripMapper.existsAccessibleTrip(tripId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner can update trip");
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found");
+    }
+
+    @Transactional
     public void deleteTrip(Long tripId, Long userId) {
         validateTripId(tripId);
         validateUserId(userId);
@@ -89,6 +114,16 @@ public class TripService {
     }
 
     private void validateRequest(TripCreateRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "request body is required");
+        }
+        normalizeRequiredText(request.title(), "title is required");
+        if (request.startDate() != null && request.endDate() != null && request.endDate().isBefore(request.startDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "endDate must not be before startDate");
+        }
+    }
+
+    private void validateUpdateRequest(TripUpdateRequest request) {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "request body is required");
         }
