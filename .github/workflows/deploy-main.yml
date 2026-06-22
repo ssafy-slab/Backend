@@ -20,7 +20,7 @@ jobs:
           project: ssafy-slab/backend
           stage: main
           yaml: >
-            name: ssafy-slab-backend
+            name: ssafy_slap/backend
 
             app: java@17
 
