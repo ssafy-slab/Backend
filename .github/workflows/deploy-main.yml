@@ -17,10 +17,10 @@ jobs:
         uses: cloudtype-github-actions/deploy@v1
         with:
           token: ${{ secrets.CLOUDTYPE_TOKEN }}
-          project: ssafy_slap/backend
+          project: ssafy_slab/backend
           stage: main
           yaml: >
-            name: ssafy-slap-backend
+            name: ssafy-slab-backend
 
             app: java@17
 
