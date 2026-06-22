@@ -14,7 +14,7 @@ import static org.mockito.Mockito.mock;
 class SecurityConfigTest {
 
     @Test
-    void allowsLocalViteOriginForApiRequests() {
+    void allowsLocalAndLanViteOriginsForApiRequests() {
         SecurityConfig securityConfig = new SecurityConfig(mock(JwtAuthenticationFilter.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/places/filters");
 
@@ -22,7 +22,8 @@ class SecurityConfigTest {
                 .getCorsConfiguration(request);
 
         assertThat(configuration).isNotNull();
-        assertThat(configuration.getAllowedOrigins()).contains("http://localhost:5173");
+        assertThat(configuration.getAllowedOriginPatterns())
+                .contains("http://localhost:5173", "http://127.0.0.1:5173", "http://*:5173");
         assertThat(configuration.getAllowedMethods()).contains("GET");
         assertThat(configuration.getAllowedHeaders()).contains("*");
     }
