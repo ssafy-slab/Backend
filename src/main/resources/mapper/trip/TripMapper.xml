@@ -109,6 +109,38 @@
                  tm.trip_member_id ASC
     </select>
 
+    <select id="findMembersByTripId" resultType="com.ssafy.ssafy_slap.trip.domain.TripMember">
+        SELECT
+            tm.trip_member_id AS tripMemberId,
+            tm.trip_id AS tripId,
+            tm.user_id AS userId,
+            au.nickname AS nickname,
+            tm.member_role AS memberRole,
+            tm.invite_status AS inviteStatus,
+            tm.joined_at AS joinedAt
+        FROM TRIP_MEMBER tm
+        JOIN APP_USER au ON tm.user_id = au.user_id
+        WHERE tm.trip_id = #{tripId}
+        ORDER BY CASE tm.member_role WHEN 'OWNER' THEN 0 ELSE 1 END,
+                 tm.joined_at ASC,
+                 tm.trip_member_id ASC
+    </select>
+
+    <select id="findTripMember" resultType="com.ssafy.ssafy_slap.trip.domain.TripMember">
+        SELECT
+            tm.trip_member_id AS tripMemberId,
+            tm.trip_id AS tripId,
+            tm.user_id AS userId,
+            au.nickname AS nickname,
+            tm.member_role AS memberRole,
+            tm.invite_status AS inviteStatus,
+            tm.joined_at AS joinedAt
+        FROM TRIP_MEMBER tm
+        JOIN APP_USER au ON tm.user_id = au.user_id
+        WHERE tm.trip_id = #{tripId}
+          AND tm.user_id = #{userId}
+    </select>
+
     <select id="findAccessibleTripById" resultType="com.ssafy.ssafy_slap.trip.domain.Trip">
         SELECT
         <include refid="tripColumnsWithAlias"/>
@@ -150,4 +182,17 @@
         WHERE trip_id = #{tripId}
           AND owner_user_id = #{userId}
     </delete>
+
+    <delete id="deleteTripMember">
+        DELETE FROM TRIP_MEMBER
+        WHERE trip_id = #{tripId}
+          AND user_id = #{userId}
+    </delete>
+
+    <update id="updateTripMemberRole">
+        UPDATE TRIP_MEMBER
+        SET member_role = #{memberRole}
+        WHERE trip_id = #{tripId}
+          AND user_id = #{userId}
+    </update>
 </mapper>

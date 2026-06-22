@@ -102,7 +102,7 @@ class TripServiceTest {
         )));
         when(mapper.findMembersByTripIds(List.of(7L))).thenReturn(List.of(
                 new TripMember(1L, 7L, 10L, "owner", "OWNER", "ACCEPTED", LocalDateTime.of(2026, 6, 17, 10, 0)),
-                new TripMember(2L, 7L, 99L, "member", "MEMBER", "ACCEPTED", LocalDateTime.of(2026, 6, 17, 11, 0))
+                new TripMember(2L, 7L, 99L, "member", "EDITOR", "ACCEPTED", LocalDateTime.of(2026, 6, 17, 11, 0))
         ));
 
         var response = service.findMyTrips(10L);

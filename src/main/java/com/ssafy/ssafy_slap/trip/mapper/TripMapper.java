@@ -26,6 +26,13 @@ public interface TripMapper {
 
     List<TripMember> findMembersByTripIds(@Param("tripIds") List<Long> tripIds);
 
+    List<TripMember> findMembersByTripId(@Param("tripId") Long tripId);
+
+    TripMember findTripMember(
+            @Param("tripId") Long tripId,
+            @Param("userId") Long userId
+    );
+
     Trip findAccessibleTripById(
             @Param("tripId") Long tripId,
             @Param("userId") Long userId
@@ -49,5 +56,16 @@ public interface TripMapper {
     int deleteOwnedTrip(
             @Param("tripId") Long tripId,
             @Param("userId") Long userId
+    );
+
+    int deleteTripMember(
+            @Param("tripId") Long tripId,
+            @Param("userId") Long userId
+    );
+
+    int updateTripMemberRole(
+            @Param("tripId") Long tripId,
+            @Param("userId") Long userId,
+            @Param("memberRole") String memberRole
     );
 }

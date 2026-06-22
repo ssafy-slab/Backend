@@ -1,10 +1,13 @@
 package com.ssafy.ssafy_slap.auth.controller;
 
 import com.ssafy.ssafy_slap.auth.dto.AuthResponse;
+import com.ssafy.ssafy_slap.auth.dto.OAuthTicketRequest;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthProvider;
+import com.ssafy.ssafy_slap.auth.service.OAuthLoginTicketStore;
 import com.ssafy.ssafy_slap.auth.service.OAuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +16,8 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,13 +37,15 @@ public class OAuthController {
     private static final Logger log = LoggerFactory.getLogger(OAuthController.class);
     private static final String STATE_COOKIE = "slap_oauth_state";
     private final OAuthService oauthService;
+    private final OAuthLoginTicketStore ticketStore;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public OAuthController(OAuthService oauthService) {
+    public OAuthController(OAuthService oauthService, OAuthLoginTicketStore ticketStore) {
         this.oauthService = oauthService;
+        this.ticketStore = ticketStore;
     }
 
-    @GetMapping("/{provider}/authorize")
+    @PostMapping("/{provider}/authorize")
     public ResponseEntity<Void> authorize(@PathVariable String provider) {
         OAuthProvider oauthProvider = OAuthProvider.fromPath(provider);
         String state = createState();
@@ -81,7 +88,7 @@ public class OAuthController {
                     state,
                     cookie == null ? null : cookie.getValue()
             );
-            return redirectToFrontend(successFragment(response));
+            return redirectToFrontend("?ticket=" + encode(ticketStore.create(response)));
         } catch (RuntimeException exception) {
             log.warn("OAuth callback failed. provider={}, hasCode={}, hasState={}, hasCookie={}, exception={}",
                     provider,
@@ -93,6 +100,11 @@ public class OAuthController {
             );
             return redirectToFrontend("#error=oauth_failed");
         }
+    }
+
+    @PostMapping("/token")
+    public AuthResponse exchangeTicket(@Valid @RequestBody OAuthTicketRequest request) {
+        return ticketStore.consume(request.ticket());
     }
 
     private ResponseEntity<Void> redirectToFrontend(String fragment) {
@@ -108,16 +120,6 @@ public class OAuthController {
                 .header(HttpHeaders.SET_COOKIE, expiredState.toString())
                 .location(URI.create(oauthService.frontendRedirectUri() + fragment))
                 .build();
-    }
-
-    private String successFragment(AuthResponse response) {
-        return "#tokenType=" + encode(response.tokenType())
-                + "&accessToken=" + encode(response.accessToken())
-                + "&userId=" + response.user().userId()
-                + "&email=" + encode(response.user().email())
-                + "&nickname=" + encode(response.user().nickname())
-                + "&role=" + encode(response.user().role())
-                + "&localAccount=" + response.user().localAccount();
     }
 
     private String encode(String value) {

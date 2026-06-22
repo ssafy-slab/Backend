@@ -53,6 +53,9 @@ Related tables:
 | `DELETE` | `/api/trips/{tripId}` | Delete an owned trip |
 | `POST` | `/api/trips/{tripId}/invite-code` | Create or reuse a team trip invite code |
 | `POST` | `/api/trips/join` | Join a team trip with an invite code |
+| `GET` | `/api/trips/{tripId}/members` | List trip members |
+| `DELETE` | `/api/trips/{tripId}/members/me` | Leave a trip as the current member |
+| `PATCH` | `/api/trips/{tripId}/members/{memberUserId}/role` | Update a member role as the trip owner |
 | `POST` | `/api/trips/{tripId}/schedules` | Create a schedule item |
 | `DELETE` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Delete a schedule item |
 
@@ -313,12 +316,117 @@ Behavior:
 - Trims and uppercases the invite code.
 - Finds an active invite code.
 - The target trip must be a `TEAM` trip.
-- If the current user is not already a member, inserts a `TRIP_MEMBER` row as `MEMBER` with `ACCEPTED` status.
+- If the current user is not already a member, inserts a `TRIP_MEMBER` row as `EDITOR` with `ACCEPTED` status.
 - If the current user is already a member, returns the trip without inserting another member row.
 
 Response:
 - `200 OK`
 - Body: `TripResponse`
+
+## List Trip Members
+
+```http
+GET /api/trips/{tripId}/members
+Authorization: Bearer <accessToken>
+```
+
+The current user must be the trip owner or an accepted member.
+
+Response:
+- `200 OK`
+- Body: array of `TripMemberResponse`
+
+```json
+[
+  {
+    "userId": 10,
+    "nickname": "owner",
+    "memberRole": "OWNER",
+    "inviteStatus": "ACCEPTED",
+    "joinedAt": "2026-06-22T10:00:00"
+  },
+  {
+    "userId": 20,
+    "nickname": "member",
+    "memberRole": "EDITOR",
+    "inviteStatus": "ACCEPTED",
+    "joinedAt": "2026-06-22T11:00:00"
+  }
+]
+```
+
+Ordering:
+- Owner first.
+- Then by `joined_at ASC`.
+- Then by `trip_member_id ASC`.
+
+## Leave Trip
+
+```http
+DELETE /api/trips/{tripId}/members/me
+Authorization: Bearer <accessToken>
+```
+
+The current user leaves the trip by deleting their `TRIP_MEMBER` row.
+
+Rules:
+- A normal member can leave.
+- The owner cannot leave with this API. The owner should delete the trip instead.
+
+Response:
+- `204 No Content`
+
+## Update Member Role
+
+```http
+PATCH /api/trips/{tripId}/members/{memberUserId}/role
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
+
+Only the trip owner can update a member role.
+
+Path parameters:
+
+| Name | Type | Description |
+|---|---|---|
+| `tripId` | `Long` | Trip ID |
+| `memberUserId` | `Long` | User ID of the member to update |
+
+Request body:
+
+```json
+{
+  "memberRole": "VIEWER"
+}
+```
+
+Allowed `memberRole` values:
+
+| Value | Meaning |
+|---|---|
+| `EDITOR` | Can view the trip and edit schedules |
+| `VIEWER` | Can view the trip but cannot edit schedules |
+
+Rules:
+- The requester must be the trip owner.
+- The owner role cannot be changed with this API.
+- The target user must be a member of the trip.
+- `OWNER` is not accepted in this API.
+
+Response:
+- `200 OK`
+- Body: `TripMemberResponse`
+
+```json
+{
+  "userId": 20,
+  "nickname": "member",
+  "memberRole": "VIEWER",
+  "inviteStatus": "ACCEPTED",
+  "joinedAt": "2026-06-22T11:00:00"
+}
+```
 
 ## Create Schedule Item
 
@@ -328,7 +436,7 @@ Authorization: Bearer <accessToken>
 Content-Type: application/json
 ```
 
-The current user must be the trip owner or an accepted member.
+The current user must be the trip owner or an accepted member with `EDITOR` role.
 
 Request body:
 
@@ -359,7 +467,7 @@ Field rules:
 | `sortOrder` | No | `Integer` | Optional display order |
 
 Behavior:
-- Validates trip access.
+- Validates trip edit permission.
 - Validates that `placeId` exists.
 - Inserts a row into `SCHEDULE_ITEM`.
 
@@ -391,7 +499,7 @@ DELETE /api/trips/{tripId}/schedules/{scheduleItemId}
 Authorization: Bearer <accessToken>
 ```
 
-The current user must be the trip owner or an accepted member.
+The current user must be the trip owner or an accepted member with `EDITOR` role.
 
 Path parameters:
 
@@ -409,11 +517,22 @@ The services throw `ResponseStatusException`. Spring converts these into HTTP er
 
 | Status | Typical reason |
 |---|---|
-| `400 Bad Request` | Missing body, blank required field, invalid date/time range, invite code requested for non-team trip |
+| `400 Bad Request` | Missing body, blank required field, invalid date/time range, invite code requested for non-team trip, invalid member role |
 | `401 Unauthorized` | Missing or invalid authentication |
-| `403 Forbidden` | User can access the trip but is not allowed to perform owner-only action |
+| `403 Forbidden` | User cannot access the trip, or can access it but is not allowed to perform owner-only action |
 | `404 Not Found` | Trip, invite code, place, or schedule item was not found |
 | `409 Conflict` | Invite code generation failed after repeated collisions |
+
+## Member Role Storage
+
+The database can store trip member authority.
+
+`TRIP_MEMBER.member_role` is a `VARCHAR(50)` column with default value `MEMBER`. Current code writes:
+- `OWNER` when a trip is created.
+- `EDITOR` when a user joins by invite code.
+- `EDITOR` or `VIEWER` when the owner updates member role.
+
+This means role storage is already available. The database does not currently enforce an enum or check constraint, so valid role values must be controlled by application code.
 
 ## Curl Examples
 
@@ -461,6 +580,29 @@ curl -X POST http://localhost:8080/api/trips/join \
   -H "Authorization: Bearer <accessToken>" \
   -H "Content-Type: application/json" \
   -d '{"inviteCode":"ABCD1234"}'
+```
+
+List trip members:
+
+```bash
+curl http://localhost:8080/api/trips/1/members \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+Leave a trip:
+
+```bash
+curl -X DELETE http://localhost:8080/api/trips/1/members/me \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+Update a member role:
+
+```bash
+curl -X PATCH http://localhost:8080/api/trips/1/members/20/role \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"memberRole":"VIEWER"}'
 ```
 
 Create a schedule item:

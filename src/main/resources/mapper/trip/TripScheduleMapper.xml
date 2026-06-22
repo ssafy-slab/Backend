@@ -33,6 +33,20 @@
         )
     </select>
 
+    <select id="existsEditableTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+             AND tm.member_role = 'EDITOR'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
     <select id="existsPlace" resultType="boolean">
         SELECT EXISTS (
             SELECT 1

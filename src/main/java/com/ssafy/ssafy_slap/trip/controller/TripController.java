@@ -5,11 +5,14 @@ import com.ssafy.ssafy_slap.trip.dto.TripCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripInviteCodeResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripJoinRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripListResponse;
+import com.ssafy.ssafy_slap.trip.dto.TripMemberRoleUpdateRequest;
+import com.ssafy.ssafy_slap.trip.dto.TripMemberResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripUpdateRequest;
 import com.ssafy.ssafy_slap.trip.service.TripInviteService;
+import com.ssafy.ssafy_slap.trip.service.TripMemberService;
 import com.ssafy.ssafy_slap.trip.service.TripScheduleService;
 import com.ssafy.ssafy_slap.trip.service.TripService;
 import jakarta.validation.Valid;
@@ -18,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,15 +38,18 @@ public class TripController {
 
     private final TripService tripService;
     private final TripInviteService tripInviteService;
+    private final TripMemberService tripMemberService;
     private final TripScheduleService tripScheduleService;
 
     public TripController(
             TripService tripService,
             TripInviteService tripInviteService,
+            TripMemberService tripMemberService,
             TripScheduleService tripScheduleService
     ) {
         this.tripService = tripService;
         this.tripInviteService = tripInviteService;
+        this.tripMemberService = tripMemberService;
         this.tripScheduleService = tripScheduleService;
     }
 
@@ -100,6 +107,33 @@ public class TripController {
             @Valid @RequestBody TripJoinRequest request
     ) {
         return tripInviteService.joinTrip(currentUserId(authentication), request);
+    }
+
+    @GetMapping("/{tripId}/members")
+    public List<TripMemberResponse> getTripMembers(
+            Authentication authentication,
+            @PathVariable Long tripId
+    ) {
+        return tripMemberService.findMembers(tripId, currentUserId(authentication));
+    }
+
+    @DeleteMapping("/{tripId}/members/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leaveTrip(
+            Authentication authentication,
+            @PathVariable Long tripId
+    ) {
+        tripMemberService.leaveTrip(tripId, currentUserId(authentication));
+    }
+
+    @PatchMapping("/{tripId}/members/{memberUserId}/role")
+    public TripMemberResponse updateTripMemberRole(
+            Authentication authentication,
+            @PathVariable Long tripId,
+            @PathVariable Long memberUserId,
+            @Valid @RequestBody TripMemberRoleUpdateRequest request
+    ) {
+        return tripMemberService.updateMemberRole(tripId, memberUserId, currentUserId(authentication), request);
     }
 
     @PostMapping("/{tripId}/schedules")

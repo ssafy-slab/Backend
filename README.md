@@ -74,7 +74,8 @@ Trip API details: [docs/trip-api.md](docs/trip-api.md)
 |---|---|---|
 | `POST` | `/api/auth/signup` | 회원가입 |
 | `POST` | `/api/auth/login` | 로그인 |
-| `GET` | `/api/oauth/{provider}/authorize` | OAuth 로그인 시작 |
+| `POST` | `/api/oauth/{provider}/authorize` | OAuth 로그인 시작 |
+| `POST` | `/api/oauth/token` | OAuth 일회용 ticket 토큰 교환 |
 | `GET` | `/api/users/me` | 내 정보 조회 |
 | `PATCH` | `/api/users/me` | 프로필 수정 |
 | `PATCH` | `/api/users/me/password` | 비밀번호 변경 |

@@ -110,7 +110,7 @@ class TripInviteServiceTest {
         var response = service.joinTrip(99L, new TripJoinRequest(" abcd1234 "));
 
         assertThat(response.tripId()).isEqualTo(7L);
-        verify(mapper).insertTripMember(7L, 99L, "MEMBER", "ACCEPTED");
+        verify(mapper).insertTripMember(7L, 99L, "EDITOR", "ACCEPTED");
     }
 
     @Test

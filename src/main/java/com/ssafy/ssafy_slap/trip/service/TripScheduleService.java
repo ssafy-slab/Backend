@@ -80,8 +80,8 @@ public class TripScheduleService {
         if (userId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
         }
-        if (!tripScheduleMapper.existsAccessibleTrip(tripId, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Trip is not accessible");
+        if (!tripScheduleMapper.existsEditableTrip(tripId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Trip is not editable");
         }
     }
 

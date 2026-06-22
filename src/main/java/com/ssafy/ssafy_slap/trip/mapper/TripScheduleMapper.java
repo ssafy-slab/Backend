@@ -12,6 +12,11 @@ public interface TripScheduleMapper {
             @Param("userId") Long userId
     );
 
+    boolean existsEditableTrip(
+            @Param("tripId") Long tripId,
+            @Param("userId") Long userId
+    );
+
     boolean existsPlace(@Param("placeId") Long placeId);
 
     void insertScheduleItem(@Param("item") TripScheduleItem item);

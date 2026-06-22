@@ -36,7 +36,7 @@ class TripScheduleServiceTest {
                 2
         );
 
-        when(mapper.existsAccessibleTrip(1L, 10L)).thenReturn(true);
+        when(mapper.existsEditableTrip(1L, 10L)).thenReturn(true);
         when(mapper.existsPlace(100L)).thenReturn(true);
         doAnswer(invocation -> {
             TripScheduleItem item = invocation.getArgument(0);
@@ -100,7 +100,7 @@ class TripScheduleServiceTest {
         TripScheduleMapper mapper = mock(TripScheduleMapper.class);
         TripScheduleService service = new TripScheduleService(mapper);
 
-        when(mapper.existsAccessibleTrip(1L, 10L)).thenReturn(true);
+        when(mapper.existsEditableTrip(1L, 10L)).thenReturn(true);
         when(mapper.deleteScheduleItem(1L, 99L)).thenReturn(1);
 
         service.deleteScheduleItem(1L, 99L, 10L);
@@ -113,7 +113,7 @@ class TripScheduleServiceTest {
         TripScheduleMapper mapper = mock(TripScheduleMapper.class);
         TripScheduleService service = new TripScheduleService(mapper);
 
-        when(mapper.existsAccessibleTrip(1L, 10L)).thenReturn(false);
+        when(mapper.existsEditableTrip(1L, 10L)).thenReturn(false);
 
         assertThatThrownBy(() -> service.deleteScheduleItem(1L, 99L, 10L))
                 .isInstanceOf(ResponseStatusException.class)

@@ -72,7 +72,7 @@ public class TripInviteService {
         validateTeamTrip(trip);
 
         if (!tripInviteMapper.existsTripMember(trip.getTripId(), userId)) {
-            tripInviteMapper.insertTripMember(trip.getTripId(), userId, "MEMBER", "ACCEPTED");
+            tripInviteMapper.insertTripMember(trip.getTripId(), userId, "EDITOR", "ACCEPTED");
         }
         return TripResponse.from(trip);
     }
