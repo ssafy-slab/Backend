@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.checklist.mapper.ChecklistMapper">
+
+    <sql id="checklistItemColumns">
+        checklist_item_id AS checklistItemId,
+        trip_id AS tripId,
+        assignee_user_id AS assigneeUserId,
+        title,
+        is_done AS done,
+        due_at AS dueAt,
+        created_at AS createdAt,
+        completed_at AS completedAt
+    </sql>
+
+    <select id="existsAccessibleTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <select id="existsEditableTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+             AND tm.member_role = 'EDITOR'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <select id="existsTripMember" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <insert id="insertChecklistItem" useGeneratedKeys="true" keyProperty="item.checklistItemId">
+        INSERT INTO CHECKLIST_ITEM (
+            trip_id,
+            assignee_user_id,
+            title,
+            is_done,
+            due_at
+        )
+        VALUES (
+            #{item.tripId},
+            #{item.assigneeUserId},
+            #{item.title},
+            #{item.done},
+            #{item.dueAt}
+        )
+    </insert>
+
+    <select id="findChecklistItemById" resultType="com.ssafy.ssafy_slap.checklist.domain.ChecklistItem">
+        SELECT
+        <include refid="checklistItemColumns"/>
+        FROM CHECKLIST_ITEM
+        WHERE checklist_item_id = #{checklistItemId}
+    </select>
+
+    <select id="findChecklistItemsByTripId" resultType="com.ssafy.ssafy_slap.checklist.domain.ChecklistItem">
+        SELECT
+        <include refid="checklistItemColumns"/>
+        FROM CHECKLIST_ITEM
+        WHERE trip_id = #{tripId}
+        ORDER BY is_done ASC, due_at IS NULL ASC, due_at ASC, checklist_item_id ASC
+    </select>
+
+    <delete id="deleteChecklistItem">
+        DELETE FROM CHECKLIST_ITEM
+        WHERE trip_id = #{tripId}
+          AND checklist_item_id = #{checklistItemId}
+    </delete>
+</mapper>
