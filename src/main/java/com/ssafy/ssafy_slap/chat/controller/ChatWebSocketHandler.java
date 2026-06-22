@@ -8,6 +8,8 @@ import com.ssafy.ssafy_slap.chat.dto.ChatWebSocketRequest;
 import com.ssafy.ssafy_slap.chat.dto.ChatWebSocketResponse;
 import com.ssafy.ssafy_slap.chat.service.ChatRoomSessionRegistry;
 import com.ssafy.ssafy_slap.chat.service.ChatService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -17,6 +19,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatWebSocketHandler.class);
 
     private final ObjectMapper objectMapper;
     private final ChatService chatService;
@@ -43,6 +47,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 validateTripId(request.tripId());
                 chatService.validateTripAccess(authenticatedUserId, request.tripId());
                 sessionRegistry.subscribe(request.tripId(), session);
+                log.info(
+                        "Chat websocket subscribed tripId={} sessionId={} subscriberCount={}",
+                        request.tripId(),
+                        session.getId(),
+                        sessionRegistry.subscriberCount(request.tripId())
+                );
                 session.sendMessage(toTextMessage(ChatWebSocketResponse.subscribed(request.tripId())));
                 return;
             }

@@ -4,12 +4,37 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ChatRoomSessionRegistryTest {
+
+    @Test
+    void countsSubscribedSessionsByTrip() {
+        ChatRoomSessionRegistry registry = new ChatRoomSessionRegistry();
+        WebSocketSession firstSession = mock(WebSocketSession.class);
+        WebSocketSession secondSession = mock(WebSocketSession.class);
+        WebSocketSession otherTripSession = mock(WebSocketSession.class);
+
+        when(firstSession.getId()).thenReturn("session-1");
+        when(secondSession.getId()).thenReturn("session-2");
+        when(otherTripSession.getId()).thenReturn("session-3");
+
+        registry.subscribe(1L, firstSession);
+        registry.subscribe(1L, secondSession);
+        registry.subscribe(2L, otherTripSession);
+
+        assertThat(registry.subscriberCount(1L)).isEqualTo(2);
+        assertThat(registry.subscriberCount(2L)).isEqualTo(1);
+        assertThat(registry.subscriberCount(3L)).isZero();
+
+        registry.unsubscribe(firstSession);
+
+        assertThat(registry.subscriberCount(1L)).isEqualTo(1);
+    }
 
     @Test
     void broadcastsOnlyToSessionsInTripRoom() throws Exception {
