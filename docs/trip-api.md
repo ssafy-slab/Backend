@@ -41,6 +41,7 @@ Related tables:
 - `TRIP_MEMBER`: stores members and owner membership.
 - `TRIP_INVITE_CODE`: stores active invite codes for team trips.
 - `SCHEDULE_ITEM`: stores schedule items attached to trips and places.
+- `CHECKLIST_ITEM`: stores checklist items attached to trips.
 
 ## Endpoint Summary
 
@@ -58,6 +59,9 @@ Related tables:
 | `PATCH` | `/api/trips/{tripId}/members/{memberUserId}/role` | Update a member role as the trip owner |
 | `POST` | `/api/trips/{tripId}/schedules` | Create a schedule item |
 | `DELETE` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Delete a schedule item |
+| `POST` | `/api/trips/{tripId}/checklist-items` | Create a checklist item |
+| `GET` | `/api/trips/{tripId}/checklist-items` | List checklist items |
+| `DELETE` | `/api/trips/{tripId}/checklist-items/{checklistItemId}` | Delete a checklist item |
 
 ## Common Responses
 
@@ -511,6 +515,81 @@ Path parameters:
 Response:
 - `204 No Content`
 
+## Create Checklist Item
+
+```http
+POST /api/trips/{tripId}/checklist-items
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
+
+The current user must be the trip owner or an accepted member with `EDITOR` role.
+
+Request body:
+
+```json
+{
+  "title": "Pack passport",
+  "assigneeUserId": 20,
+  "dueAt": "2026-07-01T09:00:00"
+}
+```
+
+Field rules:
+
+| Field | Required | Type | Rule |
+|---|---:|---|---|
+| `title` | Yes | `String` | Not blank, max 255, trimmed before saving |
+| `assigneeUserId` | No | `Long` | Must be the trip owner or an accepted trip member |
+| `dueAt` | No | `LocalDateTime` | Optional deadline |
+
+Response:
+- `201 Created`
+
+```json
+{
+  "checklistItemId": 99,
+  "tripId": 1,
+  "assigneeUserId": 20,
+  "title": "Pack passport",
+  "done": false,
+  "dueAt": "2026-07-01T09:00:00",
+  "createdAt": "2026-06-23T10:00:00",
+  "completedAt": null
+}
+```
+
+## List Checklist Items
+
+```http
+GET /api/trips/{tripId}/checklist-items
+Authorization: Bearer <accessToken>
+```
+
+The current user must be the trip owner or an accepted member.
+
+Response:
+- `200 OK`
+- Body: array of `ChecklistItemResponse`
+
+Ordering:
+- Incomplete items first.
+- Items with a due date before items without one.
+- Earlier due dates first.
+- Then by `checklist_item_id ASC`.
+
+## Delete Checklist Item
+
+```http
+DELETE /api/trips/{tripId}/checklist-items/{checklistItemId}
+Authorization: Bearer <accessToken>
+```
+
+The current user must be the trip owner or an accepted member with `EDITOR` role.
+
+Response:
+- `204 No Content`
+
 ## Error Cases
 
 The services throw `ResponseStatusException`. Spring converts these into HTTP error responses.
@@ -520,7 +599,7 @@ The services throw `ResponseStatusException`. Spring converts these into HTTP er
 | `400 Bad Request` | Missing body, blank required field, invalid date/time range, invite code requested for non-team trip, invalid member role |
 | `401 Unauthorized` | Missing or invalid authentication |
 | `403 Forbidden` | User cannot access the trip, or can access it but is not allowed to perform owner-only action |
-| `404 Not Found` | Trip, invite code, place, or schedule item was not found |
+| `404 Not Found` | Trip, invite code, place, schedule item, or checklist item was not found |
 | `409 Conflict` | Invite code generation failed after repeated collisions |
 
 ## Member Role Storage
