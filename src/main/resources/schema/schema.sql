@@ -7,6 +7,7 @@ USE `finalproject`;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `REPORT`;
 DROP TABLE IF EXISTS `COMMENT`;
+DROP TABLE IF EXISTS `COMMUNITY_POST_LIKE`;
 DROP TABLE IF EXISTS `COMMUNITY_POST`;
 DROP TABLE IF EXISTS `AI_RECOMMENDATION`;
 DROP TABLE IF EXISTS `CHECKLIST_ITEM`;
@@ -507,6 +508,7 @@ CREATE TABLE `COMMUNITY_POST` (
   `title` VARCHAR(255) NOT NULL,
   `content` TEXT NULL,
   `image_url` VARCHAR(1000) NULL,
+  `view_count` BIGINT NOT NULL DEFAULT 0,
   `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -515,6 +517,7 @@ CREATE TABLE `COMMUNITY_POST` (
   KEY `idx_community_post_trip` (`trip_id`),
   KEY `idx_community_post_place` (`place_id`),
   KEY `idx_community_post_category_status` (`category`, `status`),
+  KEY `idx_community_post_created` (`created_at`, `post_id`),
   CONSTRAINT `fk_community_post_user`
     FOREIGN KEY (`user_id`)
     REFERENCES `APP_USER` (`user_id`)
@@ -530,6 +533,24 @@ CREATE TABLE `COMMUNITY_POST` (
     REFERENCES `PLACE` (`place_id`)
     ON UPDATE CASCADE
     ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `COMMUNITY_POST_LIKE` (
+  `post_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`post_id`, `user_id`),
+  KEY `idx_community_post_like_user` (`user_id`),
+  CONSTRAINT `fk_community_post_like_post`
+    FOREIGN KEY (`post_id`)
+    REFERENCES `COMMUNITY_POST` (`post_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_community_post_like_user`
+    FOREIGN KEY (`user_id`)
+    REFERENCES `APP_USER` (`user_id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `COMMENT` (

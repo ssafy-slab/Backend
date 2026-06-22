@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.community.mapper.CommunityMapper">
+
+    <sql id="postStats">
+        COALESCE(likes.like_count, 0) AS likeCount,
+        COALESCE(comments.comment_count, 0) AS commentCount,
+        p.view_count AS viewCount,
+        <choose>
+            <when test="currentUserId != null">
+                CASE WHEN my_like.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+                CASE WHEN p.user_id = #{currentUserId} THEN TRUE ELSE FALSE END AS mine
+            </when>
+            <otherwise>
+                FALSE AS likedByMe,
+                FALSE AS mine
+            </otherwise>
+        </choose>
+    </sql>
+
+    <sql id="postJoins">
+        JOIN APP_USER u ON u.user_id = p.user_id
+        LEFT JOIN PLACE pl ON pl.place_id = p.place_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) AS like_count
+            FROM COMMUNITY_POST_LIKE
+            GROUP BY post_id
+        ) likes ON likes.post_id = p.post_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) AS comment_count
+            FROM `COMMENT`
+            WHERE status = 'ACTIVE'
+            GROUP BY post_id
+        ) comments ON comments.post_id = p.post_id
+        <if test="currentUserId != null">
+            LEFT JOIN COMMUNITY_POST_LIKE my_like
+              ON my_like.post_id = p.post_id
+             AND my_like.user_id = #{currentUserId}
+        </if>
+    </sql>
+
+    <select id="existsPlace" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM PLACE WHERE place_id = #{placeId})
+    </select>
+
+    <select id="existsPost" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM COMMUNITY_POST
+            WHERE post_id = #{postId}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
+    <select id="isPostOwner" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM COMMUNITY_POST
+            WHERE post_id = #{postId}
+              AND user_id = #{userId}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
+    <insert id="insertPost" useGeneratedKeys="true" keyProperty="post.postId">
+        INSERT INTO COMMUNITY_POST (
+            user_id,
+            place_id,
+            category,
+            title,
+            content,
+            image_url,
+            status
+        )
+        VALUES (
+            #{post.userId},
+            #{post.placeId},
+            #{post.category},
+            #{post.title},
+            #{post.content},
+            #{post.imageUrl},
+            'ACTIVE'
+        )
+    </insert>
+
+    <select id="findPosts" resultType="com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse">
+        SELECT
+            p.post_id AS postId,
+            p.user_id AS userId,
+            u.nickname AS authorNickname,
+            p.place_id AS placeId,
+            pl.place_name AS placeName,
+            p.category AS category,
+            p.title AS title,
+            CASE
+                WHEN p.content IS NULL THEN NULL
+                WHEN CHAR_LENGTH(p.content) &gt; 100 THEN CONCAT(SUBSTRING(p.content, 1, 100), '...')
+                ELSE p.content
+            END AS excerpt,
+            p.image_url AS imageUrl,
+            COALESCE(likes.like_count, 0) AS likeCount,
+            COALESCE(comments.comment_count, 0) AS commentCount,
+            p.view_count AS viewCount,
+            p.created_at AS createdAt,
+            p.updated_at AS updatedAt,
+            <choose>
+                <when test="currentUserId != null">
+                    CASE WHEN my_like.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+                    CASE WHEN p.user_id = #{currentUserId} THEN TRUE ELSE FALSE END AS mine
+                </when>
+                <otherwise>
+                    FALSE AS likedByMe,
+                    FALSE AS mine
+                </otherwise>
+            </choose>
+        FROM COMMUNITY_POST p
+        <include refid="postJoins"/>
+        WHERE p.status = 'ACTIVE'
+        <if test="category != null">
+          AND p.category = #{category}
+        </if>
+        <if test="keyword != null">
+          AND (
+            p.title LIKE CONCAT('%', #{keyword}, '%')
+            OR p.content LIKE CONCAT('%', #{keyword}, '%')
+            OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+            OR pl.place_name LIKE CONCAT('%', #{keyword}, '%')
+          )
+        </if>
+        <choose>
+            <when test="sort == 'popular'">
+                ORDER BY likeCount DESC, p.created_at DESC, p.post_id DESC
+            </when>
+            <when test="sort == 'comments'">
+                ORDER BY commentCount DESC, p.created_at DESC, p.post_id DESC
+            </when>
+            <otherwise>
+                ORDER BY p.created_at DESC, p.post_id DESC
+            </otherwise>
+        </choose>
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
+
+    <select id="findPostById" resultType="com.ssafy.ssafy_slap.community.domain.CommunityPost">
+        SELECT
+            p.post_id AS postId,
+            p.user_id AS userId,
+            u.nickname AS authorNickname,
+            p.trip_id AS tripId,
+            p.place_id AS placeId,
+            pl.place_name AS placeName,
+            p.category AS category,
+            p.title AS title,
+            p.content AS content,
+            p.image_url AS imageUrl,
+            p.created_at AS createdAt,
+            p.updated_at AS updatedAt,
+            <include refid="postStats"/>
+        FROM COMMUNITY_POST p
+        <include refid="postJoins"/>
+        WHERE p.post_id = #{postId}
+          AND p.status = 'ACTIVE'
+    </select>
+
+    <update id="incrementViewCount">
+        UPDATE COMMUNITY_POST
+        SET view_count = view_count + 1
+        WHERE post_id = #{postId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="updatePost">
+        UPDATE COMMUNITY_POST
+        SET place_id = #{post.placeId},
+            category = #{post.category},
+            title = #{post.title},
+            content = #{post.content},
+            image_url = #{post.imageUrl},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE post_id = #{post.postId}
+          AND user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="deletePost">
+        UPDATE COMMUNITY_POST
+        SET status = 'DELETED',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE post_id = #{postId}
+          AND user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <select id="existsLike" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM COMMUNITY_POST_LIKE
+            WHERE post_id = #{postId}
+              AND user_id = #{userId}
+        )
+    </select>
+
+    <insert id="insertLike">
+        INSERT INTO COMMUNITY_POST_LIKE (post_id, user_id)
+        VALUES (#{postId}, #{userId})
+    </insert>
+
+    <delete id="deleteLike">
+        DELETE FROM COMMUNITY_POST_LIKE
+        WHERE post_id = #{postId}
+          AND user_id = #{userId}
+    </delete>
+
+    <select id="findComments" resultType="com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse">
+        SELECT
+            c.comment_id AS commentId,
+            c.post_id AS postId,
+            c.commenter_user_id AS commenterUserId,
+            u.nickname AS authorNickname,
+            c.parent_comment_id AS parentCommentId,
+            c.content AS content,
+            c.created_at AS createdAt,
+            c.updated_at AS updatedAt,
+            CASE
+                WHEN #{currentUserId} IS NOT NULL AND c.commenter_user_id = #{currentUserId} THEN TRUE
+                ELSE FALSE
+            END AS mine
+        FROM `COMMENT` c
+        JOIN APP_USER u ON u.user_id = c.commenter_user_id
+        WHERE c.post_id = #{postId}
+          AND c.status = 'ACTIVE'
+        ORDER BY COALESCE(c.parent_comment_id, c.comment_id) ASC,
+                 CASE WHEN c.parent_comment_id IS NULL THEN 0 ELSE 1 END,
+                 c.created_at ASC,
+                 c.comment_id ASC
+    </select>
+
+    <insert id="insertComment">
+        INSERT INTO `COMMENT` (
+            post_id,
+            commenter_user_id,
+            parent_comment_id,
+            content,
+            status
+        )
+        VALUES (
+            #{postId},
+            #{userId},
+            #{parentCommentId},
+            #{content},
+            'ACTIVE'
+        )
+    </insert>
+
+    <update id="deleteComment">
+        UPDATE `COMMENT`
+        SET status = 'DELETED',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE comment_id = #{commentId}
+          AND commenter_user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+</mapper>
