@@ -45,4 +45,13 @@ class SecurityConfigTest {
         assertThat(securityConfig).contains(".requestMatchers(\"/api/chats/**\").authenticated()");
         assertThat(securityConfig).contains(".anyRequest().permitAll()");
     }
+
+    @Test
+    void returnsUnauthorizedWhenAuthenticationIsMissingOrInvalid() throws Exception {
+        String securityConfig = Files.readString(Path.of("src/main/java/com/ssafy/ssafy_slap/global/config/SecurityConfig.java"));
+
+        assertThat(securityConfig)
+                .contains(".authenticationEntryPoint(")
+                .contains("HttpServletResponse.SC_UNAUTHORIZED");
+    }
 }

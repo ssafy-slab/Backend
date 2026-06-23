@@ -41,7 +41,7 @@
               ON tm.trip_id = t.trip_id
              AND tm.user_id = #{userId}
              AND tm.invite_status = 'ACCEPTED'
-             AND tm.member_role = 'EDITOR'
+             AND tm.member_role IN ('EDITOR', 'MEMBER')
             WHERE t.trip_id = #{tripId}
               AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
         )
