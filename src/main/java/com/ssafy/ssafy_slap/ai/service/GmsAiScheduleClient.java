@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.ssafy_slap.ai.dto.AiScheduleDraftResponse;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class GmsAiScheduleClient implements AiScheduleClient {
 
@@ -80,10 +82,14 @@ public class GmsAiScheduleClient implements AiScheduleClient {
             String additionalRequest
     ) {
         if (!StringUtils.hasText(apiKey)) {
+            log.error("GMS AI request blocked: apiKeyConfigured=false, urlConfigured={}, modelConfigured={}",
+                    StringUtils.hasText(chatCompletionsUrl), StringUtils.hasText(model));
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "GMS API key is not configured");
         }
 
         try {
+            log.info("GMS AI request started: tripId={}, messageCount={}, apiKeyConfigured=true, urlConfigured={}, model={}",
+                    trip.tripId(), messages.size(), StringUtils.hasText(chatCompletionsUrl), model);
             String requestBody = objectMapper.writeValueAsString(Map.of(
                     "model", model,
                     "temperature", 0.2,
@@ -103,20 +109,33 @@ public class GmsAiScheduleClient implements AiScheduleClient {
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
             );
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.error("GMS AI request failed: tripId={}, status={}, responseBodyPreview={}",
+                        trip.tripId(), response.statusCode(), preview(response.body()));
                 throw new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
                         "GMS request failed with status " + response.statusCode()
                 );
             }
+            log.info("GMS AI request succeeded: tripId={}, status={}", trip.tripId(), response.statusCode());
             return parseResponse(response.body());
         } catch (ResponseStatusException exception) {
             throw exception;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            log.error("GMS AI request interrupted: tripId={}", trip.tripId(), exception);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "GMS request was interrupted", exception);
         } catch (Exception exception) {
+            log.error("GMS AI request failed unexpectedly: tripId={}", trip.tripId(), exception);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to generate AI schedule draft", exception);
         }
+    }
+
+    private String preview(String body) {
+        if (body == null) {
+            return null;
+        }
+        String normalized = body.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 500 ? normalized : normalized.substring(0, 500);
     }
 
     private AiScheduleDraftResponse parseResponse(String responseBody) throws Exception {

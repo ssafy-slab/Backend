@@ -11,6 +11,7 @@ import com.ssafy.ssafy_slap.ai.mapper.AiAnalysisMapper;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.service.TripService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class AiAnalysisService {
     private static final int AUTO_MESSAGE_COUNT = 30;
@@ -74,6 +76,8 @@ public class AiAnalysisService {
                 messages.size(), "RUNNING", null, null, null
         );
         mapper.insertRun(run);
+        log.info("AI analysis run started: tripId={}, runId={}, triggerType={}, messageCount={}, firstMessageId={}, lastMessageId={}",
+                tripId, run.getAnalysisRunId(), triggerType, messages.size(), run.getFirstMessageId(), run.getLastMessageId());
 
         try {
             AiScheduleDraftResponse draft = client.generate(trip, messages, normalize(additionalRequest));
@@ -81,10 +85,14 @@ public class AiAnalysisService {
             mapper.markRunSucceeded(run.getAnalysisRunId());
             mapper.completeState(tripId, run.getLastMessageId());
             notifier.completed(tripId, run.getAnalysisRunId());
+            log.info("AI analysis run succeeded: tripId={}, runId={}, suggestionCount={}",
+                    tripId, run.getAnalysisRunId(), suggestions.size());
             return new AiAnalysisResponse(run.getAnalysisRunId(), triggerType, "SUCCEEDED", suggestions);
         } catch (RuntimeException exception) {
             mapper.markRunFailed(run.getAnalysisRunId(), truncate(exception.getMessage()));
             mapper.failState(tripId);
+            log.error("AI analysis run failed: tripId={}, runId={}, triggerType={}, messageCount={}",
+                    tripId, run.getAnalysisRunId(), triggerType, messages.size(), exception);
             throw exception;
         }
     }
