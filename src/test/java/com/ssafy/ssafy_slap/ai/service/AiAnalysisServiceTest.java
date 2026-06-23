@@ -65,6 +65,7 @@ class AiAnalysisServiceTest {
         assertThat(response.suggestions().get(0).suggestedPlaceId()).isEqualTo(351L);
         assertThat(response.suggestions().get(0).suggestedPlaceName()).isEqualTo("해운대해수욕장");
         assertThat(response.suggestions().get(0).suggestedRegionHint()).isEqualTo("부산 해운대구");
+        assertThat(response.suggestions().get(0).reason()).isEqualTo("여행 채팅을 기반으로 생성됨");
         verify(mapper).completeState(1L, 32L);
         verify(notifier).completed(1L, 5L);
     }

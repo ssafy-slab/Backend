@@ -75,6 +75,48 @@ class GmsAiScheduleClientTest {
         assertThat(httpClient.requestBody).contains("\"model\":\"gpt-test\"");
         assertThat(httpClient.requestBody).contains("동선을 줄여줘");
         assertThat(httpClient.requestBody).contains("첫날 오전에는 해운대");
+        assertThat(httpClient.requestBody)
+                .contains("Keep the JSON field names exactly as specified");
+        assertThat(httpClient.requestBody)
+                .contains("All user-visible text values must be written in Korean");
+    }
+
+    @Test
+    void normalizesSingleWarningStringToList() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        String draftJson = """
+                {
+                  "summary": "draft",
+                  "warnings": "The exact region is not specified.",
+                  "schedules": [{
+                    "placeName": "Beach",
+                    "regionHint": null,
+                    "scheduleDate": "2026-07-01",
+                    "startTime": "10:00:00",
+                    "endTime": "12:00:00",
+                    "title": "Visit beach",
+                    "memo": null,
+                    "dayNo": 1,
+                    "sortOrder": 1
+                  }]
+                }
+                """;
+        String responseBody = objectMapper.writeValueAsString(java.util.Map.of(
+                "choices", List.of(java.util.Map.of(
+                        "message", java.util.Map.of("content", draftJson)
+                ))
+        ));
+        GmsAiScheduleClient client = new GmsAiScheduleClient(
+                new CapturingHttpClient(responseBody, 200),
+                objectMapper,
+                "test-gms-key",
+                "https://gms.example.test/v1/chat/completions",
+                "gpt-test"
+        );
+
+        var response = client.generate(trip(), List.of(message()), null);
+
+        assertThat(response.warnings()).containsExactly("The exact region is not specified.");
     }
 
     private TripResponse trip() {

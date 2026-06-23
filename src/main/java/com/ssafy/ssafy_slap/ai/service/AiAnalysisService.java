@@ -113,7 +113,7 @@ public class AiAnalysisService {
             AiSuggestion suggestion = new AiSuggestion(
                     null, run.getAnalysisRunId(), run.getTripId(), suggestedPlaceId,
                     placeName, regionHint, "SCHEDULE",
-                    item.title().trim(), item.memo(), "Generated from trip chat",
+                    item.title().trim(), item.memo(), "여행 채팅을 기반으로 생성됨",
                     item.scheduleDate(), item.startTime(), item.endTime(), item.dayNo(),
                     item.sortOrder(), "PENDING", null, null, null
             );
