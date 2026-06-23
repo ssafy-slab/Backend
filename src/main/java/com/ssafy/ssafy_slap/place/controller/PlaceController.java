@@ -40,10 +40,11 @@ public class PlaceController {
             @RequestParam(required = false) Long regionId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String searchMode,
             @RequestParam(required = false, defaultValue = "0") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size
     ) {
-        return placeService.searchPlaces(new PlaceSearchRequest(category, regionId, keyword, sort, page, size));
+        return placeService.searchPlaces(new PlaceSearchRequest(category, regionId, keyword, sort, searchMode, page, size));
     }
 
     @GetMapping("/{placeId}")

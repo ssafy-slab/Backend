@@ -107,6 +107,21 @@ class OAuthControllerTest {
     }
 
     @Test
+    void redirectsOAuthFailureWithoutUrlFragment() throws Exception {
+        OAuthService oauthService = mock(OAuthService.class);
+        OAuthLoginTicketStore ticketStore = mock(OAuthLoginTicketStore.class);
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .build();
+
+        mockMvc.perform(get("/api/oauth/kakao/callback")
+                        .param("error", "access_denied")
+                        .cookie(new Cookie("slap_oauth_redirect_origin", "http://localhost:5173")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "http://localhost:5173/oauth/callback?error=oauth_failed"));
+    }
+
+    @Test
     void exchangesOAuthTicketForAuthResponse() throws Exception {
         OAuthService oauthService = mock(OAuthService.class);
         OAuthLoginTicketStore ticketStore = mock(OAuthLoginTicketStore.class);

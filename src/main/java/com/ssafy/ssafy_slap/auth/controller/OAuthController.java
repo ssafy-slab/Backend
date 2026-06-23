@@ -90,7 +90,7 @@ public class OAuthController {
                     error,
                     code != null && !code.isBlank()
             );
-            return redirectToFrontend(request, "#error=oauth_failed");
+            return redirectToFrontend(request, "?error=oauth_failed");
         }
 
         Cookie cookie = WebUtils.getCookie(request, STATE_COOKIE);
@@ -111,7 +111,7 @@ public class OAuthController {
                     exception.toString(),
                     exception
             );
-            return redirectToFrontend(request, "#error=oauth_failed");
+            return redirectToFrontend(request, "?error=oauth_failed");
         }
     }
 
