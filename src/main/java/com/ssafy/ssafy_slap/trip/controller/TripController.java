@@ -10,6 +10,7 @@ import com.ssafy.ssafy_slap.trip.dto.TripMemberResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleResponse;
+import com.ssafy.ssafy_slap.trip.dto.TripScheduleUpdateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripUpdateRequest;
 import com.ssafy.ssafy_slap.trip.service.TripInviteService;
 import com.ssafy.ssafy_slap.trip.service.TripMemberService;
@@ -144,6 +145,24 @@ public class TripController {
             @Valid @RequestBody TripScheduleCreateRequest request
     ) {
         return tripScheduleService.createScheduleItem(tripId, currentUserId(authentication), request);
+    }
+
+    @GetMapping("/{tripId}/schedules")
+    public List<TripScheduleResponse> getScheduleItems(
+            Authentication authentication,
+            @PathVariable Long tripId
+    ) {
+        return tripScheduleService.findScheduleItems(tripId, currentUserId(authentication));
+    }
+
+    @PutMapping("/{tripId}/schedules/{scheduleItemId}")
+    public TripScheduleResponse updateScheduleItem(
+            Authentication authentication,
+            @PathVariable Long tripId,
+            @PathVariable Long scheduleItemId,
+            @Valid @RequestBody TripScheduleUpdateRequest request
+    ) {
+        return tripScheduleService.updateScheduleItem(tripId, scheduleItemId, currentUserId(authentication), request);
     }
 
     @DeleteMapping("/{tripId}/schedules/{scheduleItemId}")

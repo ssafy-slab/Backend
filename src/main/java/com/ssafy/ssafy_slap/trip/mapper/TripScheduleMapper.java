@@ -4,6 +4,8 @@ import com.ssafy.ssafy_slap.trip.domain.TripScheduleItem;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface TripScheduleMapper {
 
@@ -22,6 +24,10 @@ public interface TripScheduleMapper {
     void insertScheduleItem(@Param("item") TripScheduleItem item);
 
     TripScheduleItem findScheduleItemById(@Param("scheduleItemId") Long scheduleItemId);
+
+    List<TripScheduleItem> findScheduleItemsByTripId(@Param("tripId") Long tripId);
+
+    int updateScheduleItem(@Param("item") TripScheduleItem item);
 
     int deleteScheduleItem(
             @Param("tripId") Long tripId,

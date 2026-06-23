@@ -89,6 +89,29 @@
         WHERE schedule_item_id = #{scheduleItemId}
     </select>
 
+    <select id="findScheduleItemsByTripId" resultType="com.ssafy.ssafy_slap.trip.domain.TripScheduleItem">
+        SELECT
+        <include refid="scheduleItemColumns"/>
+        FROM SCHEDULE_ITEM
+        WHERE trip_id = #{tripId}
+        ORDER BY schedule_date ASC, start_time ASC, sort_order ASC, schedule_item_id ASC
+    </select>
+
+    <update id="updateScheduleItem">
+        UPDATE SCHEDULE_ITEM
+        SET place_id = #{item.placeId},
+            created_by_user_id = #{item.createdByUserId},
+            day_no = #{item.dayNo},
+            schedule_date = #{item.scheduleDate},
+            start_time = #{item.startTime},
+            end_time = #{item.endTime},
+            title = #{item.title},
+            memo = #{item.memo},
+            sort_order = #{item.sortOrder}
+        WHERE trip_id = #{item.tripId}
+          AND schedule_item_id = #{item.scheduleItemId}
+    </update>
+
     <delete id="deleteScheduleItem">
         DELETE FROM SCHEDULE_ITEM
         WHERE trip_id = #{tripId}

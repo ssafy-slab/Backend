@@ -291,7 +291,7 @@ CREATE TABLE `TRIP_INVITE_CODE` (
 CREATE TABLE `SCHEDULE_ITEM` (
   `schedule_item_id` BIGINT NOT NULL AUTO_INCREMENT,
   `trip_id` BIGINT NOT NULL,
-  `place_id` BIGINT NOT NULL,
+  `place_id` BIGINT NULL,
   `created_by_user_id` BIGINT NOT NULL,
   `day_no` INT NULL,
   `schedule_date` DATE NOT NULL,
@@ -303,7 +303,7 @@ CREATE TABLE `SCHEDULE_ITEM` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`schedule_item_id`),
-  UNIQUE KEY `uk_schedule_trip_date_time_place` (`trip_id`, `schedule_date`, `start_time`, `place_id`),
+  UNIQUE KEY `uk_schedule_trip_date_time` (`trip_id`, `schedule_date`, `start_time`),
   KEY `idx_schedule_trip_date` (`trip_id`, `schedule_date`),
   KEY `idx_schedule_trip_day_order` (`trip_id`, `day_no`, `sort_order`),
   KEY `idx_schedule_place` (`place_id`),

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public record TripScheduleCreateRequest(
+public record TripScheduleUpdateRequest(
         Long placeId,
         @NotNull LocalDate scheduleDate,
         @NotNull LocalTime startTime,

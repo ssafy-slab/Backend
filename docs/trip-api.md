@@ -58,6 +58,8 @@ Related tables:
 | `DELETE` | `/api/trips/{tripId}/members/me` | Leave a trip as the current member |
 | `PATCH` | `/api/trips/{tripId}/members/{memberUserId}/role` | Update a member role as the trip owner |
 | `POST` | `/api/trips/{tripId}/schedules` | Create a schedule item |
+| `GET` | `/api/trips/{tripId}/schedules` | List schedule items |
+| `PUT` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Update a schedule item |
 | `DELETE` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Delete a schedule item |
 | `POST` | `/api/trips/{tripId}/checklist-items` | Create a checklist item |
 | `GET` | `/api/trips/{tripId}/checklist-items` | List checklist items |
@@ -461,7 +463,7 @@ Field rules:
 
 | Field | Required | Type | Rule |
 |---|---:|---|---|
-| `placeId` | Yes | `Long` | Must exist in `PLACE` |
+| `placeId` | No | `Long` | If present, must exist in `PLACE`; omit for a free-form schedule |
 | `scheduleDate` | Yes | `LocalDate` | `YYYY-MM-DD` |
 | `startTime` | Yes | `LocalTime` | `HH:mm:ss` |
 | `endTime` | No | `LocalTime` | Must not be before `startTime` |
@@ -472,8 +474,9 @@ Field rules:
 
 Behavior:
 - Validates trip edit permission.
-- Validates that `placeId` exists.
+- Validates that `placeId` exists when provided.
 - Inserts a row into `SCHEDULE_ITEM`.
+- The database prevents duplicate schedules with the same `tripId`, `scheduleDate`, and `startTime`.
 
 Response:
 - `201 Created`
@@ -495,6 +498,89 @@ Response:
   "updatedAt": "2026-06-22T10:00:00"
 }
 ```
+
+## List Schedule Items
+
+```http
+GET /api/trips/{tripId}/schedules
+Authorization: Bearer <accessToken>
+```
+
+The current user must be the trip owner or an accepted member.
+
+Response:
+- `200 OK`
+- Body: array of `TripScheduleResponse`
+
+Ordering:
+- `schedule_date ASC`
+- `start_time ASC`
+- `sort_order ASC`
+- `schedule_item_id ASC`
+
+```json
+[
+  {
+    "scheduleItemId": 99,
+    "tripId": 1,
+    "placeId": 100,
+    "createdByUserId": 10,
+    "dayNo": 1,
+    "scheduleDate": "2026-07-01",
+    "startTime": "10:00:00",
+    "endTime": "11:30:00",
+    "title": "Beach walk",
+    "memo": "Bring water",
+    "sortOrder": 1,
+    "createdAt": "2026-06-22T10:00:00",
+    "updatedAt": "2026-06-22T10:00:00"
+  }
+]
+```
+
+## Update Schedule Item
+
+```http
+PUT /api/trips/{tripId}/schedules/{scheduleItemId}
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
+
+The current user must be the trip owner or an accepted member with `EDITOR` role.
+
+Request body:
+
+```json
+{
+  "placeId": 101,
+  "scheduleDate": "2026-07-02",
+  "startTime": "13:00:00",
+  "endTime": "14:30:00",
+  "title": "Lunch",
+  "memo": "Seafood",
+  "dayNo": 2,
+  "sortOrder": 3
+}
+```
+
+Field rules are the same as `POST /api/trips/{tripId}/schedules`.
+
+The `placeId` field can be `null` to make the schedule free-form instead of place-based.
+
+Updated columns:
+- `place_id`
+- `created_by_user_id`
+- `day_no`
+- `schedule_date`
+- `start_time`
+- `end_time`
+- `title`
+- `memo`
+- `sort_order`
+
+Response:
+- `200 OK`
+- Body: `TripScheduleResponse`
 
 ## Delete Schedule Item
 
