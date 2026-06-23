@@ -15,7 +15,11 @@ class SecurityConfigTest {
 
     @Test
     void allowsLocalAndLanViteOriginsForApiRequests() {
-        SecurityConfig securityConfig = new SecurityConfig(mock(JwtAuthenticationFilter.class));
+        AppFrontendProperties frontendProperties = new AppFrontendProperties(
+                AppFrontendProperties.DEFAULT_FRONTEND_ORIGINS,
+                AppFrontendProperties.DEFAULT_FRONTEND_ORIGIN
+        );
+        SecurityConfig securityConfig = new SecurityConfig(mock(JwtAuthenticationFilter.class), frontendProperties);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/places/filters");
 
         CorsConfiguration configuration = securityConfig.corsConfigurationSource()
@@ -23,7 +27,12 @@ class SecurityConfigTest {
 
         assertThat(configuration).isNotNull();
         assertThat(configuration.getAllowedOriginPatterns())
-                .contains("http://localhost:5173", "http://127.0.0.1:5173", "http://*:5173");
+                .contains(
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173",
+                        "http://*:5173",
+                        "https://ssafyslap.vercel.app"
+                );
         assertThat(configuration.getAllowedMethods()).contains("GET");
         assertThat(configuration.getAllowedHeaders()).contains("*");
     }

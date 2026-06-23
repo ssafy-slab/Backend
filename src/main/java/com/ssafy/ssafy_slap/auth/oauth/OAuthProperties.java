@@ -7,18 +7,9 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "oauth")
 public class OAuthProperties {
 
-    private String frontendRedirectUri = "http://localhost:5173/oauth/callback";
     private Provider kakao = new Provider();
     private Provider google = new Provider();
     private Provider naver = new Provider();
-
-    public String getFrontendRedirectUri() {
-        return frontendRedirectUri;
-    }
-
-    public void setFrontendRedirectUri(String frontendRedirectUri) {
-        this.frontendRedirectUri = frontendRedirectUri;
-    }
 
     public Provider getKakao() {
         return kakao;

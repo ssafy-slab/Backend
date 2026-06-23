@@ -83,10 +83,6 @@ public class OAuthService {
         return createAuthResponse(user);
     }
 
-    public String frontendRedirectUri() {
-        return properties.getFrontendRedirectUri();
-    }
-
     private AppUser restoreOrCreateUser(String provider, OAuthProviderProfile profile) {
         AppUser deletedOAuthUser = userMapper.findByOAuthAccount(provider, profile.providerUserId())
                 .filter(candidate -> "DELETED".equals(candidate.getStatus()))
