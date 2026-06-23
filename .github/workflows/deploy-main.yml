@@ -57,6 +57,10 @@ jobs:
                   value: ${{ secrets.AWS_REGION }}
                 - name: AWS_SECRET_ACCESS_KEY
                   value: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                - name: APP_FRONTEND_ORIGINS
+                  value: ${{ secrets.APP_FRONTEND_ORIGINS }}
+                - name: APP_DEFAULT_FRONTEND_ORIGIN
+                  value: ${{ secrets.APP_DEFAULT_FRONTEND_ORIGIN }}
               buildenv: []
             context:
               git:
