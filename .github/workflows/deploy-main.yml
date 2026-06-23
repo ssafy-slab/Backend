@@ -61,6 +61,8 @@ jobs:
                   value: ${{ secrets.APP_FRONTEND_ORIGINS }}
                 - name: APP_DEFAULT_FRONTEND_ORIGIN
                   value: ${{ secrets.APP_DEFAULT_FRONTEND_ORIGIN }}
+                - name: GMS_KEY
+                  value: ${{ secrets.GMS_KEY }}
               buildenv: []
             context:
               git:
