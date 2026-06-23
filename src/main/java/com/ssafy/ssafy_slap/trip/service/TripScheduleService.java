@@ -5,6 +5,7 @@ import com.ssafy.ssafy_slap.trip.dto.TripScheduleCreateRequest;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripScheduleUpdateRequest;
 import com.ssafy.ssafy_slap.trip.mapper.TripScheduleMapper;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +42,11 @@ public class TripScheduleService {
                 null
         );
 
-        tripScheduleMapper.insertScheduleItem(item);
+        try {
+            tripScheduleMapper.insertScheduleItem(item);
+        } catch (DuplicateKeyException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Schedule item already exists at this time", exception);
+        }
         return TripScheduleResponse.from(tripScheduleMapper.findScheduleItemById(item.getScheduleItemId()));
     }
 

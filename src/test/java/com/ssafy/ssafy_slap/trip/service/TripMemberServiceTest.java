@@ -95,6 +95,21 @@ class TripMemberServiceTest {
     }
 
     @Test
+    void rejectsRoleUpdateWhenCurrentUserIsEditor() {
+        TripMapper mapper = mock(TripMapper.class);
+        TripMemberService service = new TripMemberService(mapper);
+        when(mapper.findTripById(7L)).thenReturn(teamTrip());
+        when(mapper.findTripMember(7L, 30L)).thenReturn(
+                new TripMember(3L, 7L, 30L, "viewer", "VIEWER", "ACCEPTED", LocalDateTime.of(2026, 6, 22, 12, 0))
+        );
+
+        assertThatThrownBy(() -> service.updateMemberRole(7L, 30L, 20L, new TripMemberRoleUpdateRequest("EDITOR")))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     void rejectsRoleUpdateToOwner() {
         TripMapper mapper = mock(TripMapper.class);
         TripMemberService service = new TripMemberService(mapper);

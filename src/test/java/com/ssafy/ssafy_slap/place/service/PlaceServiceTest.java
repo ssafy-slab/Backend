@@ -30,21 +30,17 @@ class PlaceServiceTest {
     }
 
     @Test
-    void tokenizesKeywordAndExpandsCafeSynonyms() {
+    void keepsKeywordAsSingleSearchTermWithoutTokenExpansion() {
         PlaceMapper placeMapper = mock(PlaceMapper.class);
         PlaceService placeService = new PlaceService(placeMapper);
 
         var tokens = placeService.toSearchTokens("강릉 카페");
 
-        assertThat(tokens).hasSize(2);
-        assertThat(tokens.get(0).terms()).containsExactly("강릉");
+        assertThat(tokens).hasSize(1);
+        assertThat(tokens.get(0).terms()).containsExactly("강릉 카페");
         assertThat(tokens.get(0).category()).isNull();
         assertThat(tokens.get(0).cat3()).isNull();
         assertThat(tokens.get(0).lclsSystm2()).isNull();
-        assertThat(tokens.get(1).terms()).containsExactly("카페", "커피");
-        assertThat(tokens.get(1).category()).isNull();
-        assertThat(tokens.get(1).cat3()).isEqualTo("A05020900");
-        assertThat(tokens.get(1).lclsSystm2()).isEqualTo("FD05");
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.ssafy.ssafy_slap.trip.dto.TripScheduleUpdateRequest;
 import com.ssafy.ssafy_slap.trip.mapper.TripScheduleMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -95,6 +97,32 @@ class TripScheduleServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void rejectsDuplicateScheduleItemTimeWithConflict() {
+        TripScheduleMapper mapper = mock(TripScheduleMapper.class);
+        TripScheduleService service = new TripScheduleService(mapper);
+        TripScheduleCreateRequest request = new TripScheduleCreateRequest(
+                null,
+                LocalDate.of(2026, 6, 23),
+                LocalTime.of(10, 0),
+                LocalTime.of(11, 0),
+                "free time",
+                null,
+                1,
+                1
+        );
+
+        when(mapper.existsEditableTrip(7L, 10L)).thenReturn(true);
+        doThrow(new DuplicateKeyException("duplicate schedule time"))
+                .when(mapper)
+                .insertScheduleItem(org.mockito.ArgumentMatchers.any(TripScheduleItem.class));
+
+        assertThatThrownBy(() -> service.createScheduleItem(7L, 10L, request))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test
