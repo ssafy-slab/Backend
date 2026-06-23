@@ -8,9 +8,12 @@ public record CommunityCommentResponse(
         Long commenterUserId,
         String authorNickname,
         Long parentCommentId,
+        String replyToNickname,
         String content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        Boolean mine
+        Boolean mine,
+        Boolean deleted,
+        Boolean edited
 ) {
 }

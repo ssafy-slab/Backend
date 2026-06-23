@@ -46,11 +46,23 @@ public interface CommunityMapper {
 
     List<CommunityCommentResponse> findComments(@Param("postId") Long postId, @Param("currentUserId") Long currentUserId);
 
+    boolean existsActiveCommentInPost(@Param("postId") Long postId, @Param("commentId") Long commentId);
+
+    boolean existsActiveComment(@Param("commentId") Long commentId);
+
+    Long findCommentPostId(@Param("commentId") Long commentId);
+
     void insertComment(
             @Param("postId") Long postId,
             @Param("userId") Long userId,
             @Param("content") String content,
             @Param("parentCommentId") Long parentCommentId
+    );
+
+    int updateComment(
+            @Param("commentId") Long commentId,
+            @Param("userId") Long userId,
+            @Param("content") String content
     );
 
     int deleteComment(@Param("commentId") Long commentId, @Param("userId") Long userId);

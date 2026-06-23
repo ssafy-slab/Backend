@@ -227,23 +227,75 @@
             c.comment_id AS commentId,
             c.post_id AS postId,
             c.commenter_user_id AS commenterUserId,
-            u.nickname AS authorNickname,
+            CASE
+                WHEN c.status = 'DELETED' THEN '삭제된 댓글'
+                ELSE u.nickname
+            END AS authorNickname,
             c.parent_comment_id AS parentCommentId,
-            c.content AS content,
+            CASE
+                WHEN parent.status = 'DELETED' THEN '삭제된 댓글'
+                ELSE parent_user.nickname
+            END AS replyToNickname,
+            CASE
+                WHEN c.status = 'DELETED' THEN '삭제된 댓글입니다.'
+                ELSE c.content
+            END AS content,
             c.created_at AS createdAt,
             c.updated_at AS updatedAt,
             CASE
-                WHEN #{currentUserId} IS NOT NULL AND c.commenter_user_id = #{currentUserId} THEN TRUE
+                WHEN c.status = 'ACTIVE'
+                  AND #{currentUserId} IS NOT NULL
+                  AND c.commenter_user_id = #{currentUserId} THEN TRUE
                 ELSE FALSE
-            END AS mine
+            END AS mine,
+            CASE WHEN c.status = 'DELETED' THEN TRUE ELSE FALSE END AS deleted,
+            CASE
+                WHEN c.status = 'ACTIVE' AND c.updated_at > c.created_at THEN TRUE
+                ELSE FALSE
+            END AS edited
         FROM `COMMENT` c
         JOIN APP_USER u ON u.user_id = c.commenter_user_id
+        LEFT JOIN `COMMENT` parent ON parent.comment_id = c.parent_comment_id
+        LEFT JOIN APP_USER parent_user ON parent_user.user_id = parent.commenter_user_id
         WHERE c.post_id = #{postId}
-          AND c.status = 'ACTIVE'
-        ORDER BY COALESCE(c.parent_comment_id, c.comment_id) ASC,
-                 CASE WHEN c.parent_comment_id IS NULL THEN 0 ELSE 1 END,
-                 c.created_at ASC,
-                 c.comment_id ASC
+          AND (
+              c.status = 'ACTIVE'
+              OR (
+                  c.status = 'DELETED'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM `COMMENT` child
+                      WHERE child.parent_comment_id = c.comment_id
+                        AND child.status IN ('ACTIVE', 'DELETED')
+                  )
+              )
+          )
+        ORDER BY c.created_at ASC, c.comment_id ASC
+    </select>
+
+    <select id="existsActiveCommentInPost" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM `COMMENT`
+            WHERE comment_id = #{commentId}
+              AND post_id = #{postId}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
+    <select id="existsActiveComment" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM `COMMENT`
+            WHERE comment_id = #{commentId}
+              AND status = 'ACTIVE'
+        )
+    </select>
+
+    <select id="findCommentPostId" resultType="long">
+        SELECT post_id
+        FROM `COMMENT`
+        WHERE comment_id = #{commentId}
     </select>
 
     <insert id="insertComment">
@@ -262,6 +314,15 @@
             'ACTIVE'
         )
     </insert>
+
+    <update id="updateComment">
+        UPDATE `COMMENT`
+        SET content = #{content},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE comment_id = #{commentId}
+          AND commenter_user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
 
     <update id="deleteComment">
         UPDATE `COMMENT`

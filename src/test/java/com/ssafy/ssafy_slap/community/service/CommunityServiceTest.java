@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.community.service;
 import com.ssafy.ssafy_slap.community.domain.CommunityPost;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
+import com.ssafy.ssafy_slap.community.dto.CommunityCommentUpdateRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse;
 import com.ssafy.ssafy_slap.community.mapper.CommunityMapper;
@@ -95,6 +96,72 @@ class CommunityServiceTest {
     }
 
     @Test
+    void createsReplyOnlyForActiveCommentInSamePost() {
+        when(communityMapper.existsPost(1L)).thenReturn(true);
+        when(communityMapper.existsActiveCommentInPost(1L, 9L)).thenReturn(true);
+
+        communityService.createComment(1L, 7L, new CommunityCommentRequest("  Reply  ", 9L));
+
+        verify(communityMapper).insertComment(1L, 7L, "Reply", 9L);
+    }
+
+    @Test
+    void rejectsReplyWhenParentCommentIsMissingOrDeleted() {
+        when(communityMapper.existsPost(1L)).thenReturn(true);
+        when(communityMapper.existsActiveCommentInPost(1L, 9L)).thenReturn(false);
+
+        assertThatThrownBy(() -> communityService.createComment(
+                1L,
+                7L,
+                new CommunityCommentRequest("Reply", 9L)
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404");
+    }
+
+    @Test
+    void updatesOwnActiveCommentAndReturnsRefreshedComments() {
+        CommunityCommentResponse updated = commentResponse("Edited", true, true);
+        when(communityMapper.updateComment(9L, 7L, "Edited")).thenReturn(1);
+        when(communityMapper.findCommentPostId(9L)).thenReturn(1L);
+        when(communityMapper.existsPost(1L)).thenReturn(true);
+        when(communityMapper.findComments(1L, 7L)).thenReturn(List.of(updated));
+
+        var result = communityService.updateComment(
+                9L,
+                7L,
+                new CommunityCommentUpdateRequest("  Edited  ")
+        );
+
+        verify(communityMapper).updateComment(9L, 7L, "Edited");
+        assertThat(result).containsExactly(updated);
+    }
+
+    @Test
+    void rejectsUpdatingAnotherUsersCommentWithForbidden() {
+        when(communityMapper.updateComment(9L, 7L, "Edited")).thenReturn(0);
+        when(communityMapper.existsActiveComment(9L)).thenReturn(true);
+
+        assertThatThrownBy(() -> communityService.updateComment(
+                9L,
+                7L,
+                new CommunityCommentUpdateRequest("Edited")
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void rejectsDeletingAnotherUsersCommentWithForbidden() {
+        when(communityMapper.deleteComment(9L, 7L)).thenReturn(0);
+        when(communityMapper.existsActiveComment(9L)).thenReturn(true);
+
+        assertThatThrownBy(() -> communityService.deleteComment(9L, 7L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
     void deletesPostAndAttemptsS3ImageDeletionAfterDbDelete() {
         String imageUrl = "https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/a.jpg";
         when(communityMapper.findPostImageUrl(1L, 7L)).thenReturn(imageUrl);
@@ -138,6 +205,24 @@ class CommunityServiceTest {
         return new CommunityPost(
                 postId, 7L, "traveler", null, 3L, "Beach", "PLACE_REVIEW", title,
                 "content", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, true
+        );
+    }
+
+    private CommunityCommentResponse commentResponse(String content, boolean mine, boolean edited) {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 6, 24, 10, 0);
+        return new CommunityCommentResponse(
+                9L,
+                1L,
+                7L,
+                "traveler",
+                null,
+                null,
+                content,
+                createdAt,
+                edited ? createdAt.plusMinutes(1) : createdAt,
+                mine,
+                false,
+                edited
         );
     }
 }

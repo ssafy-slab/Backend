@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.community.service;
 import com.ssafy.ssafy_slap.community.domain.CommunityPost;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
+import com.ssafy.ssafy_slap.community.dto.CommunityCommentUpdateRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostDetailResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse;
@@ -139,19 +140,49 @@ public class CommunityService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content is required");
         }
         ensurePostExists(postId);
+        if (request.parentCommentId() != null
+                && !communityMapper.existsActiveCommentInPost(postId, request.parentCommentId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent comment not found");
+        }
         communityMapper.insertComment(postId, userId, request.normalizedContent(), request.parentCommentId());
         return findComments(postId, userId);
     }
 
     @Transactional
-    public void deleteComment(Long commentId, Long userId) {
-        if (commentId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "commentId is required");
-        }
+    public List<CommunityCommentResponse> updateComment(
+            Long commentId,
+            Long userId,
+            CommunityCommentUpdateRequest request
+    ) {
+        validateCommentId(commentId);
         validateUser(userId);
-        if (communityMapper.deleteComment(commentId, userId) == 0) {
+        if (request == null || request.normalizedContent() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content is required");
+        }
+        if (communityMapper.updateComment(commentId, userId, request.normalizedContent()) == 0) {
+            throwMissingOrForbiddenComment(commentId);
+        }
+        Long postId = communityMapper.findCommentPostId(commentId);
+        if (postId == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found");
         }
+        return findComments(postId, userId);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId, Long userId) {
+        validateCommentId(commentId);
+        validateUser(userId);
+        if (communityMapper.deleteComment(commentId, userId) == 0) {
+            throwMissingOrForbiddenComment(commentId);
+        }
+    }
+
+    private void throwMissingOrForbiddenComment(Long commentId) {
+        if (communityMapper.existsActiveComment(commentId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only comment author can modify comment");
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found");
     }
 
     private void validatePostRequest(CommunityPostRequest request) {
@@ -185,6 +216,12 @@ public class CommunityService {
     private void validatePostId(Long postId) {
         if (postId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "postId is required");
+        }
+    }
+
+    private void validateCommentId(Long commentId) {
+        if (commentId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "commentId is required");
         }
     }
 

@@ -3,6 +3,7 @@ package com.ssafy.ssafy_slap.community.controller;
 import com.ssafy.ssafy_slap.auth.service.AuthenticatedUser;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
+import com.ssafy.ssafy_slap.community.dto.CommunityCommentUpdateRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityImageResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostDetailResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostRequest;
@@ -124,6 +125,15 @@ public class CommunityController {
             @Valid @RequestBody CommunityCommentRequest request
     ) {
         return communityService.createComment(postId, currentUserId(authentication), request);
+    }
+
+    @PutMapping("/comments/{commentId}")
+    public List<CommunityCommentResponse> updateComment(
+            @PathVariable Long commentId,
+            Authentication authentication,
+            @Valid @RequestBody CommunityCommentUpdateRequest request
+    ) {
+        return communityService.updateComment(commentId, currentUserId(authentication), request);
     }
 
     @DeleteMapping("/comments/{commentId}")
