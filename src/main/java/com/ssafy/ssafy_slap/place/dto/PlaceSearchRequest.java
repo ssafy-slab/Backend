@@ -5,6 +5,7 @@ public record PlaceSearchRequest(
         Long regionId,
         String keyword,
         String sort,
+        String searchMode,
         Integer page,
         Integer size
 ) {
@@ -24,5 +25,9 @@ public record PlaceSearchRequest(
             return sort;
         }
         return null;
+    }
+
+    public boolean tokenizedSearch() {
+        return "tokenized".equals(searchMode);
     }
 }
