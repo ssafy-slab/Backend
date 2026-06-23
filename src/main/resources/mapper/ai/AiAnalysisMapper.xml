@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.ai.mapper.AiAnalysisMapper">
+    <insert id="ensureState">
+        INSERT IGNORE INTO AI_ANALYSIS_STATE (trip_id, analysis_status)
+        VALUES (#{tripId}, 'IDLE')
+    </insert>
+
+    <update id="claimAnalysis">
+        UPDATE AI_ANALYSIS_STATE
+        SET analysis_status = 'RUNNING'
+        WHERE trip_id = #{tripId}
+          AND analysis_status != 'RUNNING'
+          AND (next_retry_at IS NULL OR next_retry_at &lt;= CURRENT_TIMESTAMP)
+    </update>
+
+    <select id="countUnanalyzedMessages" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_MESSAGE m
+        LEFT JOIN AI_ANALYSIS_STATE s ON s.trip_id = m.trip_id
+        WHERE m.trip_id = #{tripId}
+          AND m.message_type = 'TEXT'
+          AND m.message_id > COALESCE(s.last_analyzed_message_id, 0)
+    </select>
+
+    <select id="findUnanalyzedMessages" resultType="com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse">
+        SELECT m.message_id AS messageId, m.trip_id AS tripId, m.sender_user_id AS senderUserId,
+               u.nickname AS senderNickname, m.message_type AS messageType,
+               m.content, m.created_at AS createdAt
+        FROM CHAT_MESSAGE m
+        JOIN APP_USER u ON u.user_id = m.sender_user_id
+        LEFT JOIN AI_ANALYSIS_STATE s ON s.trip_id = m.trip_id
+        WHERE m.trip_id = #{tripId}
+          AND m.message_type = 'TEXT'
+          AND m.message_id > COALESCE(s.last_analyzed_message_id, 0)
+        ORDER BY m.message_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insertRun" useGeneratedKeys="true" keyProperty="run.analysisRunId">
+        INSERT INTO AI_ANALYSIS_RUN (
+            trip_id, requested_by_user_id, trigger_type, first_message_id,
+            last_message_id, message_count, status
+        ) VALUES (
+            #{run.tripId}, #{run.requestedByUserId}, #{run.triggerType}, #{run.firstMessageId},
+            #{run.lastMessageId}, #{run.messageCount}, 'RUNNING'
+        )
+    </insert>
+
+    <insert id="insertSuggestion" useGeneratedKeys="true" keyProperty="suggestion.aiSuggestionId">
+        INSERT INTO AI_SUGGESTION (
+            analysis_run_id, suggested_place_id, suggested_place_name, suggested_region_hint,
+            suggestion_type, suggested_title,
+            summary, reason, schedule_date, start_time, end_time, day_no, sort_order, status
+        ) VALUES (
+            #{suggestion.analysisRunId}, #{suggestion.suggestedPlaceId},
+            #{suggestion.suggestedPlaceName}, #{suggestion.suggestedRegionHint}, 'SCHEDULE',
+            #{suggestion.suggestedTitle}, #{suggestion.summary}, #{suggestion.reason},
+            #{suggestion.scheduleDate}, #{suggestion.startTime}, #{suggestion.endTime},
+            #{suggestion.dayNo}, #{suggestion.sortOrder}, 'PENDING'
+        )
+    </insert>
+
+    <update id="markRunSucceeded">
+        UPDATE AI_ANALYSIS_RUN SET status = 'SUCCEEDED', completed_at = CURRENT_TIMESTAMP
+        WHERE analysis_run_id = #{runId}
+    </update>
+    <update id="markRunFailed">
+        UPDATE AI_ANALYSIS_RUN
+        SET status = 'FAILED', error_message = #{errorMessage}, completed_at = CURRENT_TIMESTAMP
+        WHERE analysis_run_id = #{runId}
+    </update>
+    <update id="completeState">
+        UPDATE AI_ANALYSIS_STATE
+        SET last_analyzed_message_id = #{lastMessageId}, analysis_status = 'IDLE',
+            retry_count = 0, next_retry_at = NULL
+        WHERE trip_id = #{tripId}
+    </update>
+    <update id="failState">
+        UPDATE AI_ANALYSIS_STATE
+        SET analysis_status = 'FAILED', retry_count = retry_count + 1,
+            next_retry_at = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 5 MINUTE)
+        WHERE trip_id = #{tripId}
+    </update>
+    <update id="releaseState">
+        UPDATE AI_ANALYSIS_STATE SET analysis_status = 'IDLE' WHERE trip_id = #{tripId}
+    </update>
+</mapper>

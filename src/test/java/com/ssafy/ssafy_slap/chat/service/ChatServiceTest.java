@@ -5,6 +5,7 @@ import com.ssafy.ssafy_slap.chat.dto.ChatMessageRequest;
 import com.ssafy.ssafy_slap.chat.mapper.ChatMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 
@@ -51,6 +52,27 @@ class ChatServiceTest {
         assertThat(messageCaptor.getValue().getSenderUserId()).isEqualTo(2L);
         assertThat(messageCaptor.getValue().getMessageType()).isEqualTo("TEXT");
         assertThat(messageCaptor.getValue().getContent()).isEqualTo("hello");
+    }
+
+    @Test
+    void publishesMessageCreatedEventAfterSavingChat() {
+        ChatMapper chatMapper = mock(ChatMapper.class);
+        ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+        ChatService chatService = new ChatService(chatMapper, publisher);
+        when(chatMapper.existsAccessibleTrip(1L, 2L)).thenReturn(true);
+        when(chatMapper.existsUser(2L)).thenReturn(true);
+        doAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            message.setMessageId(30L);
+            return null;
+        }).when(chatMapper).insertMessage(org.mockito.ArgumentMatchers.any(ChatMessage.class));
+        when(chatMapper.findMessageById(30L)).thenReturn(new ChatMessage(
+                30L, 1L, 2L, "tester", "TEXT", "hello", LocalDateTime.now()
+        ));
+
+        chatService.createTextMessage(2L, new ChatMessageRequest(1L, 2L, "hello"));
+
+        verify(publisher).publishEvent(new ChatMessageCreatedEvent(1L, 2L, 30L));
     }
 
     @Test

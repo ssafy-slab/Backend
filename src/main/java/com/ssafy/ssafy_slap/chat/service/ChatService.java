@@ -4,6 +4,8 @@ import com.ssafy.ssafy_slap.chat.domain.ChatMessage;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageRequest;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.chat.mapper.ChatMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +18,17 @@ public class ChatService {
     private static final int MAX_LIMIT = 100;
 
     private final ChatMapper chatMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ChatService(ChatMapper chatMapper) {
+    @Autowired
+    public ChatService(ChatMapper chatMapper, ApplicationEventPublisher eventPublisher) {
         this.chatMapper = chatMapper;
+        this.eventPublisher = eventPublisher;
+    }
+
+    ChatService(ChatMapper chatMapper) {
+        this(chatMapper, event -> {
+        });
     }
 
     @Transactional
@@ -36,7 +46,13 @@ public class ChatService {
         );
         chatMapper.insertMessage(message);
 
-        return ChatMessageResponse.from(chatMapper.findMessageById(message.getMessageId()));
+        ChatMessageResponse response = ChatMessageResponse.from(chatMapper.findMessageById(message.getMessageId()));
+        eventPublisher.publishEvent(new ChatMessageCreatedEvent(
+                response.tripId(),
+                authenticatedUserId,
+                response.messageId()
+        ));
+        return response;
     }
 
     @Transactional(readOnly = true)

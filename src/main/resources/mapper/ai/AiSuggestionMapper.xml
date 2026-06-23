@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.ai.mapper.AiSuggestionMapper">
+    <sql id="columns">
+        s.ai_suggestion_id AS aiSuggestionId,
+        s.analysis_run_id AS analysisRunId,
+        r.trip_id AS tripId,
+        s.suggested_place_id AS suggestedPlaceId,
+        s.suggested_place_name AS suggestedPlaceName,
+        s.suggested_region_hint AS suggestedRegionHint,
+        s.suggestion_type AS suggestionType,
+        s.suggested_title AS suggestedTitle,
+        s.summary, s.reason,
+        s.schedule_date AS scheduleDate,
+        s.start_time AS startTime,
+        s.end_time AS endTime,
+        s.day_no AS dayNo,
+        s.sort_order AS sortOrder,
+        s.status,
+        s.applied_schedule_item_id AS appliedScheduleItemId,
+        s.created_at AS createdAt,
+        s.applied_at AS appliedAt
+    </sql>
+
+    <select id="findSuggestions" resultType="com.ssafy.ssafy_slap.ai.domain.AiSuggestion">
+        SELECT <include refid="columns"/>
+        FROM AI_SUGGESTION s
+        JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        WHERE r.trip_id = #{tripId}
+        <if test="status != null and status != ''">
+            AND s.status = #{status}
+        </if>
+        ORDER BY s.created_at DESC, s.ai_suggestion_id DESC
+    </select>
+
+    <select id="findSuggestionForUpdate" resultType="com.ssafy.ssafy_slap.ai.domain.AiSuggestion">
+        SELECT <include refid="columns"/>
+        FROM AI_SUGGESTION s
+        JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        WHERE r.trip_id = #{tripId}
+          AND s.ai_suggestion_id = #{suggestionId}
+        FOR UPDATE
+    </select>
+
+    <select id="findPendingSuggestionsForRunForUpdate" resultType="com.ssafy.ssafy_slap.ai.domain.AiSuggestion">
+        SELECT <include refid="columns"/>
+        FROM AI_SUGGESTION s
+        JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        WHERE r.trip_id = #{tripId}
+          AND r.analysis_run_id = #{runId}
+          AND s.status = 'PENDING'
+        ORDER BY s.schedule_date, s.start_time, s.sort_order, s.ai_suggestion_id
+        FOR UPDATE
+    </select>
+
+    <update id="markApplied">
+        UPDATE AI_SUGGESTION
+        SET status = 'APPLIED',
+            applied_schedule_item_id = #{scheduleItemId},
+            applied_at = CURRENT_TIMESTAMP
+        WHERE ai_suggestion_id = #{suggestionId}
+          AND status = 'PENDING'
+    </update>
+
+    <update id="markRejected">
+        UPDATE AI_SUGGESTION
+        SET status = 'REJECTED'
+        WHERE ai_suggestion_id = #{suggestionId}
+          AND status = 'PENDING'
+    </update>
+</mapper>

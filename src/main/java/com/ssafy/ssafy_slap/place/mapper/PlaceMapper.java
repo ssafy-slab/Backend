@@ -1,5 +1,6 @@
 package com.ssafy.ssafy_slap.place.mapper;
 
+import com.ssafy.ssafy_slap.ai.dto.AiPlaceCandidate;
 import com.ssafy.ssafy_slap.place.dto.PlaceCategoryResponse;
 import com.ssafy.ssafy_slap.place.dto.NearbyFacilityResponse;
 import com.ssafy.ssafy_slap.place.dto.PlaceSearchToken;
@@ -33,6 +34,8 @@ public interface PlaceMapper {
     );
 
     PlaceSummaryResponse findById(@Param("placeId") Long placeId);
+
+    List<AiPlaceCandidate> findAiPlaceCandidates(@Param("placeName") String placeName);
 
     PlaceWeatherPoint findWeatherPointById(@Param("placeId") Long placeId);
 

@@ -147,6 +147,21 @@
         WHERE p.place_id = #{placeId}
     </select>
 
+    <select id="findAiPlaceCandidates" resultType="com.ssafy.ssafy_slap.ai.dto.AiPlaceCandidate">
+        SELECT
+            p.place_id AS placeId,
+            p.place_name AS placeName,
+            r.region_name AS regionName,
+            r.region_full_name AS regionFullName,
+            p.address AS address
+        FROM PLACE p
+        JOIN REGION r ON r.region_id = p.region_id
+        WHERE LOWER(REPLACE(TRIM(p.place_name), ' ', ''))
+            = LOWER(REPLACE(TRIM(#{placeName}), ' ', ''))
+        ORDER BY p.place_id
+        LIMIT 20
+    </select>
+
     <select id="findWeatherPointById" resultType="com.ssafy.ssafy_slap.place.dto.PlaceWeatherPoint">
         SELECT
             place_id AS placeId,

@@ -61,6 +61,12 @@ Related tables:
 | `GET` | `/api/trips/{tripId}/schedules` | List schedule items |
 | `PUT` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Update a schedule item |
 | `DELETE` | `/api/trips/{tripId}/schedules/{scheduleItemId}` | Delete a schedule item |
+| `POST` | `/api/trips/{tripId}/ai/schedule-drafts` | Analyze new chat and persist schedule suggestions |
+| `GET` | `/api/trips/{tripId}/ai/suggestions` | List durable AI suggestions |
+| `POST` | `/api/trips/{tripId}/ai/suggestions/{suggestionId}/apply` | Apply one suggestion |
+| `PATCH` | `/api/trips/{tripId}/ai/suggestions/{suggestionId}/reject` | Reject one suggestion |
+| `POST` | `/api/trips/{tripId}/ai/analysis-runs/{runId}/apply` | Apply all pending suggestions in a run |
+| `PATCH` | `/api/trips/{tripId}/ai/analysis-runs/{runId}/reject` | Reject all pending suggestions in a run |
 | `POST` | `/api/trips/{tripId}/checklist-items` | Create a checklist item |
 | `GET` | `/api/trips/{tripId}/checklist-items` | List checklist items |
 | `DELETE` | `/api/trips/{tripId}/checklist-items/{checklistItemId}` | Delete a checklist item |
@@ -498,6 +504,108 @@ Response:
   "updatedAt": "2026-06-22T10:00:00"
 }
 ```
+
+## Generate AI Schedule Draft
+
+```http
+POST /api/trips/{tripId}/ai/schedule-drafts
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+```
+
+This button endpoint analyzes text messages that have not been analyzed yet, stores an `AI_ANALYSIS_RUN`, and stores each generated item in `AI_SUGGESTION`. It does not create `SCHEDULE_ITEM` rows until the user applies a suggestion.
+
+Request body:
+
+```json
+{
+  "messageLimit": 100,
+  "additionalRequest": "Keep meal times relaxed"
+}
+```
+
+`messageLimit` defaults to `100` and must be between `1` and `100`. The body itself may be omitted.
+
+Response:
+
+```json
+{
+  "analysisRunId": 12,
+  "triggerType": "BUTTON",
+  "status": "SUCCEEDED",
+  "suggestions": [
+    {
+      "aiSuggestionId": 31,
+      "analysisRunId": 12,
+      "tripId": 1,
+      "suggestedPlaceId": 351,
+      "suggestedPlaceName": "해운대해수욕장",
+      "suggestedRegionHint": "부산 해운대구",
+      "title": "Visit Haeundae",
+      "summary": "Generated from the group chat",
+      "reason": "Generated from trip chat",
+      "scheduleDate": "2026-07-01",
+      "startTime": "10:00:00",
+      "endTime": "12:00:00",
+      "dayNo": 1,
+      "sortOrder": 1,
+      "status": "PENDING",
+      "appliedScheduleItemId": null
+    }
+  ]
+}
+```
+
+The AI returns `placeName` and `regionHint`, never an internal database ID. Before persistence, the backend searches `PLACE` by an exact normalized place name and uses the region hint to disambiguate candidates. `suggestedPlaceId` is populated only when one verified candidate remains. The original AI text is preserved in `suggestedPlaceName` and `suggestedRegionHint`.
+
+If the place is missing or ambiguous, `suggestedPlaceId` remains `null`. Free-form schedules are supported because `SCHEDULE_ITEM.place_id` is nullable.
+
+Automatic analysis uses the same storage flow. After each committed text message, the server counts messages after `AI_ANALYSIS_STATE.last_analyzed_message_id`. At 30 messages it starts one asynchronous `AUTO` run. `AI_ANALYSIS_STATE.analysis_status` prevents overlapping runs.
+
+After a successful run, the chat WebSocket broadcasts:
+
+```json
+{
+  "type": "AI_ANALYSIS_COMPLETED",
+  "tripId": 1,
+  "analysisRunId": 12
+}
+```
+
+The frontend should then call:
+
+```http
+GET /api/trips/{tripId}/ai/suggestions?status=PENDING
+```
+
+It should also call this endpoint when the AI suggestion screen opens. Because the rows are stored in MySQL, suggestions remain available after the frontend is closed or refreshed.
+
+Apply or reject:
+
+```http
+POST  /api/trips/{tripId}/ai/suggestions/{suggestionId}/apply
+PATCH /api/trips/{tripId}/ai/suggestions/{suggestionId}/reject
+POST  /api/trips/{tripId}/ai/analysis-runs/{runId}/apply
+PATCH /api/trips/{tripId}/ai/analysis-runs/{runId}/reject
+```
+
+Applying creates a `SCHEDULE_ITEM` and changes the suggestion status to `APPLIED`. Rejecting changes it to `REJECTED`. Only `PENDING` suggestions can transition.
+
+Configuration:
+
+```properties
+GMS_KEY=<secret>
+GMS_CHAT_COMPLETIONS_URL=https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions
+GMS_MODEL=gpt-4.1-mini
+```
+
+Error cases:
+
+- `400 Bad Request`: no usable chat messages or an invalid message limit.
+- `401 Unauthorized`: authentication is missing.
+- `404 Not Found`: the trip is not accessible.
+- `502 Bad Gateway`: GMS failed or returned an invalid draft.
+- `503 Service Unavailable`: `GMS_KEY` is not configured.
 
 ## List Schedule Items
 

@@ -1,0 +1,126 @@
+package com.ssafy.ssafy_slap.ai.service;
+
+import com.ssafy.ssafy_slap.ai.domain.AiAnalysisRun;
+import com.ssafy.ssafy_slap.ai.domain.AiSuggestion;
+import com.ssafy.ssafy_slap.ai.dto.AiAnalysisResponse;
+import com.ssafy.ssafy_slap.ai.dto.AiScheduleDraftItem;
+import com.ssafy.ssafy_slap.ai.dto.AiScheduleDraftRequest;
+import com.ssafy.ssafy_slap.ai.dto.AiScheduleDraftResponse;
+import com.ssafy.ssafy_slap.ai.dto.AiSuggestionResponse;
+import com.ssafy.ssafy_slap.ai.mapper.AiAnalysisMapper;
+import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
+import com.ssafy.ssafy_slap.trip.dto.TripResponse;
+import com.ssafy.ssafy_slap.trip.service.TripService;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class AiAnalysisService {
+    private static final int AUTO_MESSAGE_COUNT = 30;
+    private static final int MAX_BUTTON_MESSAGES = 100;
+
+    private final AiAnalysisMapper mapper;
+    private final TripService tripService;
+    private final AiScheduleClient client;
+    private final AiAnalysisNotifier notifier;
+    private final AiPlaceMatcher placeMatcher;
+
+    public AiAnalysisService(AiAnalysisMapper mapper, TripService tripService,
+                             AiScheduleClient client, AiAnalysisNotifier notifier,
+                             AiPlaceMatcher placeMatcher) {
+        this.mapper = mapper;
+        this.tripService = tripService;
+        this.client = client;
+        this.notifier = notifier;
+        this.placeMatcher = placeMatcher;
+    }
+
+    public AiAnalysisResponse analyzeButton(Long tripId, Long userId, AiScheduleDraftRequest request) {
+        int limit = request == null || request.messageLimit() == null
+                ? MAX_BUTTON_MESSAGES : request.messageLimit();
+        return analyze(tripId, userId, userId, "BUTTON", limit,
+                request == null ? null : request.additionalRequest());
+    }
+
+    public boolean shouldAutoAnalyze(Long tripId) {
+        mapper.ensureState(tripId);
+        return mapper.countUnanalyzedMessages(tripId) >= AUTO_MESSAGE_COUNT;
+    }
+
+    public AiAnalysisResponse analyzeAuto(Long tripId, Long accessUserId) {
+        return analyze(tripId, accessUserId, null, "AUTO", AUTO_MESSAGE_COUNT, null);
+    }
+
+    private AiAnalysisResponse analyze(Long tripId, Long accessUserId, Long requestedByUserId,
+                                       String triggerType, int limit, String additionalRequest) {
+        TripResponse trip = tripService.findTrip(tripId, accessUserId);
+        mapper.ensureState(tripId);
+        if (mapper.claimAnalysis(tripId) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "AI analysis is already running");
+        }
+        List<ChatMessageResponse> messages = mapper.findUnanalyzedMessages(tripId, limit);
+        if (messages.isEmpty()) {
+            mapper.releaseState(tripId);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "There are no new chat messages to analyze");
+        }
+
+        AiAnalysisRun run = new AiAnalysisRun(
+                null, tripId, requestedByUserId, triggerType,
+                messages.get(0).messageId(), messages.get(messages.size() - 1).messageId(),
+                messages.size(), "RUNNING", null, null, null
+        );
+        mapper.insertRun(run);
+
+        try {
+            AiScheduleDraftResponse draft = client.generate(trip, messages, normalize(additionalRequest));
+            List<AiSuggestionResponse> suggestions = persistSuggestions(run, draft);
+            mapper.markRunSucceeded(run.getAnalysisRunId());
+            mapper.completeState(tripId, run.getLastMessageId());
+            notifier.completed(tripId, run.getAnalysisRunId());
+            return new AiAnalysisResponse(run.getAnalysisRunId(), triggerType, "SUCCEEDED", suggestions);
+        } catch (RuntimeException exception) {
+            mapper.markRunFailed(run.getAnalysisRunId(), truncate(exception.getMessage()));
+            mapper.failState(tripId);
+            throw exception;
+        }
+    }
+
+    private List<AiSuggestionResponse> persistSuggestions(AiAnalysisRun run, AiScheduleDraftResponse draft) {
+        if (draft == null || draft.schedules() == null || draft.schedules().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned no schedule suggestions");
+        }
+        List<AiSuggestionResponse> responses = new ArrayList<>();
+        for (AiScheduleDraftItem item : draft.schedules()) {
+            if (item.scheduleDate() == null || item.startTime() == null
+                    || item.title() == null || item.title().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI returned an incomplete suggestion");
+            }
+            String placeName = normalize(item.placeName());
+            String regionHint = normalize(item.regionHint());
+            Long suggestedPlaceId = placeMatcher.findPlaceId(placeName, regionHint);
+            AiSuggestion suggestion = new AiSuggestion(
+                    null, run.getAnalysisRunId(), run.getTripId(), suggestedPlaceId,
+                    placeName, regionHint, "SCHEDULE",
+                    item.title().trim(), item.memo(), "Generated from trip chat",
+                    item.scheduleDate(), item.startTime(), item.endTime(), item.dayNo(),
+                    item.sortOrder(), "PENDING", null, null, null
+            );
+            mapper.insertSuggestion(suggestion);
+            responses.add(AiSuggestionResponse.from(suggestion));
+        }
+        return responses;
+    }
+
+    private String normalize(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
+    }
+
+    private String truncate(String message) {
+        if (message == null) return "Unknown AI analysis failure";
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
+    }
+}
