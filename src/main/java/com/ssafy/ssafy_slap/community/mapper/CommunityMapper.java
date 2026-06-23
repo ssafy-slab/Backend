@@ -30,6 +30,8 @@ public interface CommunityMapper {
 
     CommunityPost findPostById(@Param("postId") Long postId, @Param("currentUserId") Long currentUserId);
 
+    String findPostImageUrl(@Param("postId") Long postId, @Param("userId") Long userId);
+
     void incrementViewCount(@Param("postId") Long postId);
 
     int updatePost(@Param("post") CommunityPost post, @Param("userId") Long userId);

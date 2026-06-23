@@ -17,12 +17,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CommunityServiceTest {
 
     private final CommunityMapper communityMapper = mock(CommunityMapper.class);
-    private final CommunityService communityService = new CommunityService(communityMapper);
+    private final CommunityImageStorageService imageStorageService = mock(CommunityImageStorageService.class);
+    private final CommunityService communityService = new CommunityService(communityMapper, imageStorageService);
 
     @Test
     void createsPostWithNormalizedContent() {
@@ -90,6 +92,30 @@ class CommunityServiceTest {
         communityService.createComment(1L, 7L, new CommunityCommentRequest("  Nice tip  ", null));
 
         verify(communityMapper).insertComment(1L, 7L, "Nice tip", null);
+    }
+
+    @Test
+    void deletesPostAndAttemptsS3ImageDeletionAfterDbDelete() {
+        String imageUrl = "https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/a.jpg";
+        when(communityMapper.findPostImageUrl(1L, 7L)).thenReturn(imageUrl);
+        when(communityMapper.deletePost(1L, 7L)).thenReturn(1);
+
+        communityService.deletePost(1L, 7L);
+
+        verify(communityMapper).deletePost(1L, 7L);
+        verify(imageStorageService).deleteIfOwnedS3Image(imageUrl);
+    }
+
+    @Test
+    void doesNotDeleteS3ImageWhenPostDeleteFails() {
+        when(communityMapper.deletePost(1L, 7L)).thenReturn(0);
+        when(communityMapper.existsPost(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> communityService.deletePost(1L, 7L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404");
+
+        verifyNoInteractions(imageStorageService);
     }
 
     @Test

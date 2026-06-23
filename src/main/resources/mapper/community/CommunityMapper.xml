@@ -165,6 +165,14 @@
           AND p.status = 'ACTIVE'
     </select>
 
+    <select id="findPostImageUrl" resultType="string">
+        SELECT image_url
+        FROM COMMUNITY_POST
+        WHERE post_id = #{postId}
+          AND user_id = #{userId}
+          AND status = 'ACTIVE'
+    </select>
+
     <update id="incrementViewCount">
         UPDATE COMMUNITY_POST
         SET view_count = view_count + 1

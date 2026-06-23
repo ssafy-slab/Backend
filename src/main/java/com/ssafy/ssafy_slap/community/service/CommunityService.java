@@ -22,9 +22,11 @@ public class CommunityService {
     private static final Set<String> SORTS = Set.of("latest", "popular", "comments");
 
     private final CommunityMapper communityMapper;
+    private final CommunityImageStorageService imageStorageService;
 
-    public CommunityService(CommunityMapper communityMapper) {
+    public CommunityService(CommunityMapper communityMapper, CommunityImageStorageService imageStorageService) {
         this.communityMapper = communityMapper;
+        this.imageStorageService = imageStorageService;
     }
 
     public List<CommunityPostSummaryResponse> findPosts(
@@ -103,10 +105,12 @@ public class CommunityService {
     public void deletePost(Long postId, Long userId) {
         validatePostId(postId);
         validateUser(userId);
+        String imageUrl = communityMapper.findPostImageUrl(postId, userId);
         int deleted = communityMapper.deletePost(postId, userId);
         if (deleted == 0) {
             throwMissingOrForbidden(postId, userId);
         }
+        imageStorageService.deleteIfOwnedS3Image(imageUrl);
     }
 
     @Transactional
