@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @Transactional(readOnly = true)
@@ -23,26 +25,56 @@ public class PlaceService {
         this.placeMapper = placeMapper;
     }
 
-    public PlacePageResponse searchPlaces(PlaceSearchRequest request) {
+    public PlacePageResponse searchPlaces(PlaceSearchRequest request, Long currentUserId) {
         int page = request.normalizedPage();
         int size = request.normalizedSize();
         int offset = toOffset(request);
         String category = normalizeCategory(request.category());
         List<PlaceSearchToken> searchTokens = toSearchTokens(request.keyword(), request.tokenizedSearch());
 
-        var content = placeMapper.findPlaces(category, request.regionId(), searchTokens, request.normalizedSort(), size, offset);
+        var content = placeMapper.findPlaces(category, request.regionId(), searchTokens, request.normalizedSort(), size, offset, currentUserId);
         long totalElements = placeMapper.countPlaces(category, request.regionId(), searchTokens);
         boolean hasNext = (long) offset + content.size() < totalElements;
 
         return new PlacePageResponse(content, totalElements, page, size, hasNext);
     }
 
-    public PlaceSummaryResponse getPlace(Long placeId) {
-        PlaceSummaryResponse place = placeMapper.findById(placeId);
+    public PlaceSummaryResponse getPlace(Long placeId, Long currentUserId) {
+        PlaceSummaryResponse place = placeMapper.findById(placeId, currentUserId);
         if (place == null) {
             throw new NoSuchElementException("Place not found: " + placeId);
         }
         return place;
+    }
+
+    @Transactional
+    public void likePlace(Long placeId, Long userId) {
+        validateLikeRequest(placeId, userId);
+        placeMapper.insertLike(placeId, userId);
+    }
+
+    @Transactional
+    public void removeLike(Long placeId, Long userId) {
+        validateLikeRequest(placeId, userId);
+        placeMapper.deleteLike(placeId, userId);
+    }
+
+    public List<PlaceSummaryResponse> findLikedPlaces(Long userId, Integer requestedPage, Integer requestedSize) {
+        if (userId == null || userId <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
+        }
+        int page = requestedPage == null || requestedPage < 0 ? 0 : requestedPage;
+        int size = requestedSize == null || requestedSize < 1 ? 20 : Math.min(requestedSize, 50);
+        return placeMapper.findLikedPlaces(userId, size, page * size);
+    }
+
+    private void validateLikeRequest(Long placeId, Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
+        }
+        if (placeId == null || placeId <= 0 || !placeMapper.existsPlace(placeId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Place not found");
+        }
     }
 
     public PlaceFilterResponse getFilters() {

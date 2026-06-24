@@ -31,8 +31,6 @@ public class CommunityService {
     private static final int DEFAULT_FONT_SIZE_PX = 14;
     private static final int IMAGE_FONT_SIZE_PX = 0;
     private static final Set<Integer> CELL_FONT_SIZE_PX = Set.of(14, 16, 18, 20, 24, 28, 32);
-    private static final int MAX_POST_CELLS = 5;
-
     private final CommunityMapper communityMapper;
     private final CommunityImageStorageService imageStorageService;
 
@@ -140,36 +138,22 @@ public class CommunityService {
     }
 
     @Transactional
-    public void toggleLike(Long postId, Long userId) {
+    public void likePost(Long postId, Long userId) {
         validatePostId(postId);
         validateUser(userId);
         ensurePostExists(postId);
-        if (communityMapper.existsLike(postId, userId)) {
-            communityMapper.deleteLike(postId, userId);
-        } else {
-            communityMapper.insertLike(postId, userId);
-        }
+        communityMapper.insertLike(postId, userId);
     }
 
     @Transactional
-    public void bookmarkPost(Long postId, Long userId) {
+    public void removeLike(Long postId, Long userId) {
         validatePostId(postId);
         validateUser(userId);
         ensurePostExists(postId);
-        if (!communityMapper.existsBookmark(postId, userId)) {
-            communityMapper.insertBookmark(postId, userId);
-        }
+        communityMapper.deleteLike(postId, userId);
     }
 
-    @Transactional
-    public void removeBookmark(Long postId, Long userId) {
-        validatePostId(postId);
-        validateUser(userId);
-        ensurePostExists(postId);
-        communityMapper.deleteBookmark(postId, userId);
-    }
-
-    public List<CommunityPostSummaryResponse> findBookmarkedPosts(
+    public List<CommunityPostSummaryResponse> findLikedPosts(
             Long userId,
             Integer requestedPage,
             Integer requestedSize
@@ -177,7 +161,7 @@ public class CommunityService {
         validateUser(userId);
         int page = requestedPage == null || requestedPage < 0 ? 0 : requestedPage;
         int size = requestedSize == null || requestedSize < 1 ? 20 : Math.min(requestedSize, 50);
-        return communityMapper.findBookmarkedPosts(userId, size, page * size);
+        return communityMapper.findLikedPosts(userId, size, page * size);
     }
 
     public List<CommunityCommentResponse> findComments(Long postId, Long currentUserId) {
@@ -251,9 +235,6 @@ public class CommunityService {
     private List<CommunityPostCell> normalizeCells(CommunityPostRequest request) {
         if (request.cells() == null || request.cells().isEmpty()) {
             return legacyCells(request);
-        }
-        if (request.cells().size() > MAX_POST_CELLS) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cells must be 5 or fewer");
         }
         return IntStream.range(0, request.cells().size())
                 .mapToObj((index) -> toCell(request.cells().get(index), index + 1))

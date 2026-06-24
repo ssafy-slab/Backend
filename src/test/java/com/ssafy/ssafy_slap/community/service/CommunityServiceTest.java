@@ -161,28 +161,42 @@ class CommunityServiceTest {
     }
 
     @Test
-    void rejectsPostWithMoreThanFiveCells() {
+    void createsPostWithMultipleImagesAndMoreThanFiveCells() {
         var cells = List.of(
                 new CommunityPostCellRequest("TEXT", "one", null),
-                new CommunityPostCellRequest("TEXT", "two", null),
+                new CommunityPostCellRequest("IMAGE", null, "https://example.com/a.jpg"),
                 new CommunityPostCellRequest("TEXT", "three", null),
                 new CommunityPostCellRequest("TEXT", "four", null),
-                new CommunityPostCellRequest("TEXT", "five", null),
+                new CommunityPostCellRequest("IMAGE", null, "https://example.com/b.jpg"),
                 new CommunityPostCellRequest("TEXT", "six", null)
         );
+        var saved = detail(1L, "Good beach", 0L, 0L, false);
+        when(communityMapper.findPostById(1L, 7L)).thenReturn(saved);
+        doAnswer(invocation -> {
+            CommunityPost post = invocation.getArgument(0);
+            post.setPostId(1L);
+            return null;
+        }).when(communityMapper).insertPost(org.mockito.ArgumentMatchers.any(CommunityPost.class));
 
-        assertThatThrownBy(() -> communityService.createPost(7L, new CommunityPostRequest(
+        communityService.createPost(7L, new CommunityPostRequest(
                 "PLACE_REVIEW",
                 "Good beach",
                 null,
                 null,
                 null,
                 cells
-        )))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("400");
+        ));
 
-        verifyNoInteractions(imageStorageService);
+        verify(communityMapper).insertPostCells(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.argThat(savedCells ->
+                        savedCells.size() == 6
+                                && savedCells.get(0).getTextContent().equals("one")
+                                && savedCells.get(1).getImageUrl().equals("https://example.com/a.jpg")
+                                && savedCells.get(4).getImageUrl().equals("https://example.com/b.jpg")
+                                && savedCells.get(5).getTextContent().equals("six")
+                )
+        );
     }
 
     @Test
@@ -248,43 +262,32 @@ class CommunityServiceTest {
     }
 
     @Test
-    void togglesLikeForExistingPost() {
+    void likesExistingPostIdempotently() {
         when(communityMapper.existsPost(1L)).thenReturn(true);
-        when(communityMapper.existsLike(1L, 7L)).thenReturn(false);
 
-        communityService.toggleLike(1L, 7L);
+        communityService.likePost(1L, 7L);
 
         verify(communityMapper).insertLike(1L, 7L);
     }
 
     @Test
-    void bookmarksExistingPostIdempotently() {
+    void removesLikeIdempotently() {
         when(communityMapper.existsPost(1L)).thenReturn(true);
-        when(communityMapper.existsBookmark(1L, 7L)).thenReturn(false);
 
-        communityService.bookmarkPost(1L, 7L);
+        communityService.removeLike(1L, 7L);
 
-        verify(communityMapper).insertBookmark(1L, 7L);
+        verify(communityMapper).deleteLike(1L, 7L);
     }
 
     @Test
-    void removesBookmarkIdempotently() {
-        when(communityMapper.existsPost(1L)).thenReturn(true);
-
-        communityService.removeBookmark(1L, 7L);
-
-        verify(communityMapper).deleteBookmark(1L, 7L);
-    }
-
-    @Test
-    void listsCurrentUsersBookmarkedPostsWithSafePaging() {
+    void listsCurrentUsersLikedPostsWithSafePaging() {
         var post = summary(1L, "Saved beach", 2L, 1L, false);
-        when(communityMapper.findBookmarkedPosts(7L, 50, 0)).thenReturn(List.of(post));
+        when(communityMapper.findLikedPosts(7L, 50, 0)).thenReturn(List.of(post));
 
-        var result = communityService.findBookmarkedPosts(7L, -1, 100);
+        var result = communityService.findLikedPosts(7L, -1, 100);
 
         assertThat(result).containsExactly(post);
-        verify(communityMapper).findBookmarkedPosts(7L, 50, 0);
+        verify(communityMapper).findLikedPosts(7L, 50, 0);
     }
 
     @Test
@@ -403,7 +406,7 @@ class CommunityServiceTest {
         LocalDateTime now = LocalDateTime.of(2026, 6, 22, 10, 0);
         return new CommunityPostSummaryResponse(
                 postId, 7L, "traveler", 3L, "Beach", "PLACE_REVIEW", title,
-                "excerpt", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, false, true
+                "excerpt", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, true
         );
     }
 
@@ -411,7 +414,7 @@ class CommunityServiceTest {
         LocalDateTime now = LocalDateTime.of(2026, 6, 22, 10, 0);
         return new CommunityPost(
                 postId, 7L, "traveler", null, 3L, "Beach", "PLACE_REVIEW", title,
-                "content", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, false, true
+                "content", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, true
         );
     }
 

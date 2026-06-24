@@ -103,29 +103,20 @@ public class CommunityController {
 
     @PostMapping("/posts/{postId}/like")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void toggleLike(
+    public void likePost(
             @PathVariable Long postId,
             Authentication authentication
     ) {
-        communityService.toggleLike(postId, currentUserId(authentication));
+        communityService.likePost(postId, currentUserId(authentication));
     }
 
-    @PostMapping("/posts/{postId}/bookmark")
+    @DeleteMapping("/posts/{postId}/like")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void bookmarkPost(
+    public void removeLike(
             @PathVariable Long postId,
             Authentication authentication
     ) {
-        communityService.bookmarkPost(postId, currentUserId(authentication));
-    }
-
-    @DeleteMapping("/posts/{postId}/bookmark")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void removeBookmark(
-            @PathVariable Long postId,
-            Authentication authentication
-    ) {
-        communityService.removeBookmark(postId, currentUserId(authentication));
+        communityService.removeLike(postId, currentUserId(authentication));
     }
 
     @GetMapping("/posts/{postId}/comments")

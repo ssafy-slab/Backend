@@ -45,12 +45,26 @@ class CommunityImageStorageServiceTest {
     }
 
     @Test
-    void rejectsImagesLargerThanTwoMb() {
+    void uploadsImagesLargerThanTwoMbAndUpToFiveMb() {
         MockMultipartFile file = new MockMultipartFile(
                 "image",
                 "large.jpg",
                 "image/jpeg",
-                new byte[(2 * 1024 * 1024) + 1]
+                new byte[(3 * 1024 * 1024)]
+        );
+
+        service.store(file);
+
+        verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void rejectsImagesLargerThanFiveMb() {
+        MockMultipartFile file = new MockMultipartFile(
+                "image",
+                "large.jpg",
+                "image/jpeg",
+                new byte[(5 * 1024 * 1024) + 1]
         );
 
         assertThatThrownBy(() -> service.store(file))

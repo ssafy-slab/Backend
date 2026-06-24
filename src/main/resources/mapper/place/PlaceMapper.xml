@@ -22,6 +22,14 @@
         COALESCE(NULLIF(p.image_url, ''), NULLIF(p.thumbnail_url, ''), '/images/default-place.svg') AS detailImageUrl,
         COALESCE(ra.average_rating, 0) AS averageRating,
         COALESCE(ra.review_count, 0) AS reviewCount,
+        <choose>
+            <when test="currentUserId != null">
+                CASE WHEN my_like.place_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+            </when>
+            <otherwise>
+                FALSE AS likedByMe,
+            </otherwise>
+        </choose>
         p.created_at AS createdAt,
         p.updated_at AS updatedAt
     </sql>
@@ -106,6 +114,9 @@
         FROM PLACE p
         JOIN REGION r ON p.region_id = r.region_id
         <include refid="reviewAggregateJoin"/>
+        <if test="currentUserId != null">
+            LEFT JOIN PLACE_LIKE my_like ON my_like.place_id = p.place_id AND my_like.user_id = #{currentUserId}
+        </if>
         <include refid="placeFilter"/>
         ORDER BY
         <include refid="placeSearchScore"/>
@@ -144,7 +155,36 @@
         FROM PLACE p
         JOIN REGION r ON p.region_id = r.region_id
         <include refid="reviewAggregateJoin"/>
+        <if test="currentUserId != null">
+            LEFT JOIN PLACE_LIKE my_like ON my_like.place_id = p.place_id AND my_like.user_id = #{currentUserId}
+        </if>
         WHERE p.place_id = #{placeId}
+    </select>
+
+    <select id="existsPlace" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM PLACE WHERE place_id = #{placeId})
+    </select>
+
+    <insert id="insertLike">
+        INSERT IGNORE INTO PLACE_LIKE (place_id, user_id)
+        VALUES (#{placeId}, #{userId})
+    </insert>
+
+    <delete id="deleteLike">
+        DELETE FROM PLACE_LIKE WHERE place_id = #{placeId} AND user_id = #{userId}
+    </delete>
+
+    <select id="findLikedPlaces" resultType="com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse">
+        SELECT
+        <include refid="placeColumns"/>
+        FROM PLACE_LIKE my_like
+        JOIN PLACE p ON p.place_id = my_like.place_id
+        JOIN REGION r ON p.region_id = r.region_id
+        <include refid="reviewAggregateJoin"/>
+        WHERE my_like.user_id = #{currentUserId}
+        ORDER BY my_like.created_at DESC, p.place_id DESC
+        LIMIT #{size}
+        OFFSET #{offset}
     </select>
 
     <select id="findAiPlaceCandidates" resultType="com.ssafy.ssafy_slap.ai.dto.AiPlaceCandidate">

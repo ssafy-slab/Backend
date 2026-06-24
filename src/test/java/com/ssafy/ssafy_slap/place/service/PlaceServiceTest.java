@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PlaceServiceTest {
 
@@ -70,5 +72,28 @@ class PlaceServiceTest {
         assertThat(new PlaceSearchRequest(null, null, null, "reviewCount", null, 0, 20).normalizedSort()).isEqualTo("reviewCount");
         assertThat(new PlaceSearchRequest(null, null, null, "rating", null, 0, 20).normalizedSort()).isEqualTo("rating");
         assertThat(new PlaceSearchRequest(null, null, null, "unknown", null, 0, 20).normalizedSort()).isNull();
+    }
+
+    @Test
+    void likesAndRemovesLikeForExistingPlace() {
+        PlaceMapper placeMapper = mock(PlaceMapper.class);
+        PlaceService placeService = new PlaceService(placeMapper);
+        when(placeMapper.existsPlace(3L)).thenReturn(true);
+
+        placeService.likePlace(3L, 7L);
+        placeService.removeLike(3L, 7L);
+
+        verify(placeMapper).insertLike(3L, 7L);
+        verify(placeMapper).deleteLike(3L, 7L);
+    }
+
+    @Test
+    void listsLikedPlacesWithSafePaging() {
+        PlaceMapper placeMapper = mock(PlaceMapper.class);
+        PlaceService placeService = new PlaceService(placeMapper);
+        when(placeMapper.findLikedPlaces(7L, 50, 0)).thenReturn(java.util.List.of());
+
+        assertThat(placeService.findLikedPlaces(7L, -1, 100)).isEmpty();
+        verify(placeMapper).findLikedPlaces(7L, 50, 0);
     }
 }

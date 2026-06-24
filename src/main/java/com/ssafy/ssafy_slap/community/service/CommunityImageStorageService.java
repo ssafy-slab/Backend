@@ -25,7 +25,7 @@ import java.util.UUID;
 public class CommunityImageStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(CommunityImageStorageService.class);
-    private static final long MAX_FILE_SIZE = 2 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
     private static final Map<String, String> EXTENSIONS = Map.of(
             "image/jpeg", ".jpg",
             "image/png", ".png",
@@ -87,7 +87,7 @@ public class CommunityImageStorageService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "image file is required");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "image file must be 2MB or smaller");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "image file must be 5MB or smaller");
         }
         if (!EXTENSIONS.containsKey(file.getContentType())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only JPG, PNG, WebP, and GIF images are supported");

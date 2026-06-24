@@ -7,6 +7,8 @@ import com.ssafy.ssafy_slap.community.service.CommunityService;
 import com.ssafy.ssafy_slap.user.dto.ProfileUpdateRequest;
 import com.ssafy.ssafy_slap.user.dto.PasswordChangeRequest;
 import com.ssafy.ssafy_slap.user.service.UserService;
+import com.ssafy.ssafy_slap.place.service.PlaceService;
+import com.ssafy.ssafy_slap.place.dto.PlaceSummaryResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -26,10 +28,12 @@ public class UserController {
 
     private final UserService userService;
     private final CommunityService communityService;
+    private final PlaceService placeService;
 
-    public UserController(UserService userService, CommunityService communityService) {
+    public UserController(UserService userService, CommunityService communityService, PlaceService placeService) {
         this.userService = userService;
         this.communityService = communityService;
+        this.placeService = placeService;
     }
 
     @GetMapping
@@ -37,13 +41,22 @@ public class UserController {
         return userService.findCurrentUser(currentUserId(authentication));
     }
 
-    @GetMapping("/bookmarked-community-posts")
-    public java.util.List<CommunityPostSummaryResponse> getBookmarkedCommunityPosts(
+    @GetMapping("/liked-community-posts")
+    public java.util.List<CommunityPostSummaryResponse> getLikedCommunityPosts(
             Authentication authentication,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size
     ) {
-        return communityService.findBookmarkedPosts(currentUserId(authentication), page, size);
+        return communityService.findLikedPosts(currentUserId(authentication), page, size);
+    }
+
+    @GetMapping("/liked-places")
+    public java.util.List<PlaceSummaryResponse> getLikedPlaces(
+            Authentication authentication,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        return placeService.findLikedPlaces(currentUserId(authentication), page, size);
     }
 
     @PatchMapping

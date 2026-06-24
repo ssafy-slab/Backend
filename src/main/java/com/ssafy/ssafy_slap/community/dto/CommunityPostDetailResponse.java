@@ -21,7 +21,6 @@ public record CommunityPostDetailResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Boolean likedByMe,
-        Boolean bookmarkedByMe,
         Boolean mine,
         List<CommunityPostCellResponse> cells
 ) {
@@ -42,7 +41,6 @@ public record CommunityPostDetailResponse(
                 post.getCreatedAt(),
                 post.getUpdatedAt(),
                 post.getLikedByMe(),
-                post.getBookmarkedByMe(),
                 post.getMine(),
                 post.getCells() == null
                         ? List.of()

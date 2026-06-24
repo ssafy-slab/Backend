@@ -11,10 +11,10 @@ import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-class CommunityBookmarkControllerTest {
+class CommunityLikeControllerTest {
 
     @Test
-    void forwardsAuthenticatedUserToBookmarkAndRemoveBookmark() {
+    void forwardsAuthenticatedUserToLikeAndRemoveLike() {
         CommunityService communityService = mock(CommunityService.class);
         CommunityController controller = new CommunityController(
                 communityService,
@@ -26,10 +26,10 @@ class CommunityBookmarkControllerTest {
                 List.of()
         );
 
-        controller.bookmarkPost(1L, authentication);
-        controller.removeBookmark(1L, authentication);
+        controller.likePost(1L, authentication);
+        controller.removeLike(1L, authentication);
 
-        verify(communityService).bookmarkPost(1L, 7L);
-        verify(communityService).removeBookmark(1L, 7L);
+        verify(communityService).likePost(1L, 7L);
+        verify(communityService).removeLike(1L, 7L);
     }
 }

@@ -24,7 +24,8 @@ public interface PlaceMapper {
             @Param("searchTokens") List<PlaceSearchToken> searchTokens,
             @Param("sort") String sort,
             @Param("size") int size,
-            @Param("offset") int offset
+            @Param("offset") int offset,
+            @Param("currentUserId") Long currentUserId
     );
 
     long countPlaces(
@@ -33,7 +34,19 @@ public interface PlaceMapper {
             @Param("searchTokens") List<PlaceSearchToken> searchTokens
     );
 
-    PlaceSummaryResponse findById(@Param("placeId") Long placeId);
+    PlaceSummaryResponse findById(@Param("placeId") Long placeId, @Param("currentUserId") Long currentUserId);
+
+    boolean existsPlace(@Param("placeId") Long placeId);
+
+    void insertLike(@Param("placeId") Long placeId, @Param("userId") Long userId);
+
+    void deleteLike(@Param("placeId") Long placeId, @Param("userId") Long userId);
+
+    List<PlaceSummaryResponse> findLikedPlaces(
+            @Param("currentUserId") Long currentUserId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
 
     List<AiPlaceCandidate> findAiPlaceCandidates(@Param("placeName") String placeName);
 

@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS `TRIP_INVITE_CODE`;
 DROP TABLE IF EXISTS `TRIP_MEMBER`;
 DROP TABLE IF EXISTS `TRIP`;
 DROP TABLE IF EXISTS `PLACE_REVIEW`;
+DROP TABLE IF EXISTS `PLACE_LIKE`;
 DROP TABLE IF EXISTS `PLACE_NEARBY_FACILITY`;
 DROP TABLE IF EXISTS `PLACE_NEARBY_FACILITY_CACHE`;
 DROP TABLE IF EXISTS `FACILITY`;
@@ -154,6 +155,20 @@ CREATE TABLE `PLACE` (
     REFERENCES `REGION` (`region_id`)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `PLACE_LIKE` (
+  `place_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`place_id`, `user_id`),
+  KEY `idx_place_like_user_created` (`user_id`, `created_at`),
+  CONSTRAINT `fk_place_like_place`
+    FOREIGN KEY (`place_id`) REFERENCES `PLACE` (`place_id`)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT `fk_place_like_user`
+    FOREIGN KEY (`user_id`) REFERENCES `APP_USER` (`user_id`)
+    ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `FACILITY` (
@@ -674,24 +689,6 @@ CREATE TABLE `COMMUNITY_POST_LIKE` (
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   CONSTRAINT `fk_community_post_like_user`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `APP_USER` (`user_id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `COMMUNITY_POST_BOOKMARK` (
-  `post_id` BIGINT NOT NULL,
-  `user_id` BIGINT NOT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`post_id`, `user_id`),
-  KEY `idx_community_post_bookmark_user_created` (`user_id`, `created_at`),
-  CONSTRAINT `fk_community_post_bookmark_post`
-    FOREIGN KEY (`post_id`)
-    REFERENCES `COMMUNITY_POST` (`post_id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  CONSTRAINT `fk_community_post_bookmark_user`
     FOREIGN KEY (`user_id`)
     REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE

@@ -21,6 +21,7 @@ public record PlaceSummaryResponse(
         String detailImageUrl,
         BigDecimal averageRating,
         Long reviewCount,
+        Boolean likedByMe,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

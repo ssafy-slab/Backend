@@ -27,7 +27,8 @@ https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/{uuid}.{ext}
 
 ## Limits
 
-- Maximum image size: 2MB
+- Maximum image size: 5MB
+- Maximum multipart request size: 6MB (includes multipart encoding overhead)
 - Supported content types: `image/jpeg`, `image/png`, `image/webp`, `image/gif`
 - S3 object key prefix: `community/`
 

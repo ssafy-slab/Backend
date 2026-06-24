@@ -21,7 +21,6 @@ public class CommunityPost {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Boolean likedByMe;
-    private Boolean bookmarkedByMe;
     private Boolean mine;
     private List<CommunityPostCell> cells;
 
@@ -45,7 +44,6 @@ public class CommunityPost {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             Boolean likedByMe,
-            Boolean bookmarkedByMe,
             Boolean mine
     ) {
         this.postId = postId;
@@ -64,7 +62,6 @@ public class CommunityPost {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.likedByMe = likedByMe;
-        this.bookmarkedByMe = bookmarkedByMe;
         this.mine = mine;
     }
 
@@ -100,8 +97,6 @@ public class CommunityPost {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public Boolean getLikedByMe() { return likedByMe; }
     public void setLikedByMe(Boolean likedByMe) { this.likedByMe = likedByMe; }
-    public Boolean getBookmarkedByMe() { return bookmarkedByMe; }
-    public void setBookmarkedByMe(Boolean bookmarkedByMe) { this.bookmarkedByMe = bookmarkedByMe; }
     public Boolean getMine() { return mine; }
     public void setMine(Boolean mine) { this.mine = mine; }
     public List<CommunityPostCell> getCells() { return cells; }
