@@ -11,6 +11,9 @@ import com.ssafy.ssafy_slap.ai.mapper.AiAnalysisMapper;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.service.TripService;
+import com.ssafy.ssafy_slap.trip.domain.TripScheduleItem;
+import com.ssafy.ssafy_slap.trip.mapper.TripScheduleMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,15 +36,32 @@ public class AiAnalysisService {
     private final AiScheduleClient client;
     private final AiAnalysisNotifier notifier;
     private final AiPlaceMatcher placeMatcher;
+    private final TripScheduleMapper scheduleMapper;
+    private final AiScheduleSlotValidator slotValidator;
 
     public AiAnalysisService(AiAnalysisMapper mapper, TripService tripService,
                              AiScheduleClient client, AiAnalysisNotifier notifier,
                              AiPlaceMatcher placeMatcher) {
+        this(mapper, tripService, client, notifier, placeMatcher, null, new AiScheduleSlotValidator());
+    }
+
+    @Autowired
+    public AiAnalysisService(
+            AiAnalysisMapper mapper,
+            TripService tripService,
+            AiScheduleClient client,
+            AiAnalysisNotifier notifier,
+            AiPlaceMatcher placeMatcher,
+            TripScheduleMapper scheduleMapper,
+            AiScheduleSlotValidator slotValidator
+    ) {
         this.mapper = mapper;
         this.tripService = tripService;
         this.client = client;
         this.notifier = notifier;
         this.placeMatcher = placeMatcher;
+        this.scheduleMapper = scheduleMapper;
+        this.slotValidator = slotValidator;
     }
 
     public AiAnalysisResponse analyzeButton(Long tripId, Long userId, AiScheduleDraftRequest request) {
@@ -83,7 +103,12 @@ public class AiAnalysisService {
                 tripId, run.getAnalysisRunId(), triggerType, messages.size(), run.getFirstMessageId(), run.getLastMessageId());
 
         try {
-            AiScheduleDraftResponse draft = client.generate(trip, messages, normalize(additionalRequest));
+            List<TripScheduleItem> existingSchedules = scheduleMapper == null
+                    ? List.of()
+                    : scheduleMapper.findScheduleItemsByTripId(tripId);
+            AiScheduleDraftResponse draft = scheduleMapper == null
+                    ? client.generate(trip, messages, normalize(additionalRequest))
+                    : client.generate(trip, messages, existingSchedules, normalize(additionalRequest));
             if (draft != null && draft.isNoResult()) {
                 String reasonCode = normalizeOrDefault(draft.reasonCode(), DEFAULT_NO_RESULT_REASON);
                 String message = normalizeOrDefault(draft.message(), DEFAULT_NO_RESULT_MESSAGE);
@@ -94,6 +119,7 @@ public class AiAnalysisService {
                         tripId, run.getAnalysisRunId(), reasonCode);
                 return new AiAnalysisResponse(run.getAnalysisRunId(), triggerType, "NO_RESULT", List.of());
             }
+            draft = slotValidator.normalizeAndValidate(draft, trip, existingSchedules);
             List<AiSuggestionResponse> suggestions = persistSuggestions(run, draft);
             mapper.markRunSucceeded(run.getAnalysisRunId());
             mapper.completeState(tripId, run.getLastMessageId());

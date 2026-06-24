@@ -516,6 +516,16 @@ Content-Type: application/json
 
 This button endpoint analyzes text messages that have not been analyzed yet, stores an `AI_ANALYSIS_RUN`, and stores each generated item in `AI_SUGGESTION`. It does not create `SCHEDULE_ITEM` rows until the user applies a suggestion.
 
+The analysis input also includes every existing schedule item in the trip. When chat context does not
+specify a date or time, the AI chooses a non-overlapping slot within the trip period:
+
+- Available time is `07:00` inclusive through `23:00` exclusive.
+- Default duration is one hour.
+- Existing schedules and suggestions generated in the same response cannot overlap.
+- With no contextual preference, the earliest available slot is used.
+- When no one-hour slot is available, analysis returns `NO_RESULT` with no suggestions.
+- The backend validates date range, available hours, and overlaps before storing suggestions.
+
 Request body:
 
 ```json

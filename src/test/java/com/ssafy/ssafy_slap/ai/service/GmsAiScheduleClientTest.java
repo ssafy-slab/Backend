@@ -79,6 +79,9 @@ class GmsAiScheduleClientTest {
                 .contains("Keep the JSON field names exactly as specified");
         assertThat(httpClient.requestBody)
                 .contains("All user-visible text values must be written in Korean");
+        assertThat(httpClient.requestBody).contains("07:00 inclusive through 23:00 exclusive");
+        assertThat(httpClient.requestBody).contains("Use a one hour duration");
+        assertThat(httpClient.requestBody).contains("NO_AVAILABLE_SLOT");
     }
 
     @Test

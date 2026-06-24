@@ -1,6 +1,6 @@
 USE `finalproject`;
 
-CREATE TABLE `AI_SUGGESTION_VOTE` (
+CREATE TABLE IF NOT EXISTS `AI_SUGGESTION_VOTE` (
   `ai_suggestion_vote_id` BIGINT NOT NULL AUTO_INCREMENT,
   `ai_suggestion_id` BIGINT NOT NULL,
   `vote_id` BIGINT NOT NULL,

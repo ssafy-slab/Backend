@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.ssafy_slap.ai.dto.AiScheduleDraftResponse;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
+import com.ssafy.ssafy_slap.trip.domain.TripScheduleItem;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +50,13 @@ public class GmsAiScheduleClient implements AiScheduleClient {
             regionHint is a city, district, or address hint supported by the chat, or null.
             Never invent or return an internal database ID.
             Use ISO dates (yyyy-MM-dd) and times (HH:mm:ss).
+            Existing schedules are occupied and must never overlap a suggestion.
+            If the chat omits a date or time, choose an available slot inside the trip period.
+            Available hours are 07:00 inclusive through 23:00 exclusive.
+            Use a one hour duration when the chat does not specify duration.
+            Suggestions in the same response must not overlap each other.
+            When context gives no time preference, choose the earliest available slot.
+            If no free one-hour slot exists, return NO_RESULT with reasonCode "NO_AVAILABLE_SLOT".
             Do not include markdown fences or explanatory text.
             Use only decisions supported by the chat. Put uncertainty in warnings.
             """;
@@ -92,6 +101,7 @@ public class GmsAiScheduleClient implements AiScheduleClient {
     public AiScheduleDraftResponse generate(
             TripResponse trip,
             List<ChatMessageResponse> messages,
+            List<TripScheduleItem> existingSchedules,
             String additionalRequest
     ) {
         if (!StringUtils.hasText(apiKey)) {
@@ -108,7 +118,8 @@ public class GmsAiScheduleClient implements AiScheduleClient {
                     "temperature", 0.2,
                     "messages", List.of(
                             Map.of("role", "system", "content", SYSTEM_PROMPT),
-                            Map.of("role", "user", "content", userPrompt(trip, messages, additionalRequest))
+                            Map.of("role", "user", "content",
+                                    userPrompt(trip, messages, existingSchedules, additionalRequest))
                     )
             ));
             HttpRequest request = HttpRequest.newBuilder(URI.create(chatCompletionsUrl))
@@ -173,9 +184,10 @@ public class GmsAiScheduleClient implements AiScheduleClient {
         return normalized.substring(firstLineEnd + 1, closingFence).trim();
     }
 
-    private String userPrompt(
+    String userPrompt(
             TripResponse trip,
             List<ChatMessageResponse> messages,
+            List<TripScheduleItem> existingSchedules,
             String additionalRequest
     ) {
         StringBuilder prompt = new StringBuilder()
@@ -184,6 +196,21 @@ public class GmsAiScheduleClient implements AiScheduleClient {
                 .append("Trip end date: ").append(trip.endDate()).append('\n');
         if (StringUtils.hasText(additionalRequest)) {
             prompt.append("Additional request: ").append(additionalRequest).append('\n');
+        }
+        prompt.append("Existing schedules (occupied time; do not overlap):\n");
+        if (existingSchedules == null || existingSchedules.isEmpty()) {
+            prompt.append("- none\n");
+        } else {
+            for (TripScheduleItem schedule : existingSchedules) {
+                LocalTime endTime = schedule.getEndTime() == null
+                        ? schedule.getStartTime().plusHours(1)
+                        : schedule.getEndTime();
+                prompt.append("- ")
+                        .append(schedule.getScheduleDate()).append(' ')
+                        .append(schedule.getStartTime()).append('-').append(endTime)
+                        .append(" | ").append(schedule.getTitle())
+                        .append('\n');
+            }
         }
         prompt.append("Chat messages in chronological order:\n");
         for (ChatMessageResponse message : messages) {

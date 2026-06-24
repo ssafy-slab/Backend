@@ -7,6 +7,9 @@ import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.chat.service.ChatService;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import com.ssafy.ssafy_slap.trip.service.TripService;
+import com.ssafy.ssafy_slap.trip.domain.TripScheduleItem;
+import com.ssafy.ssafy_slap.trip.mapper.TripScheduleMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,15 +25,30 @@ public class AiScheduleDraftService {
     private final TripService tripService;
     private final ChatService chatService;
     private final AiScheduleClient aiScheduleClient;
+    private final TripScheduleMapper scheduleMapper;
+    private final AiScheduleSlotValidator slotValidator;
 
     public AiScheduleDraftService(
             TripService tripService,
             ChatService chatService,
             AiScheduleClient aiScheduleClient
     ) {
+        this(tripService, chatService, aiScheduleClient, null, new AiScheduleSlotValidator());
+    }
+
+    @Autowired
+    public AiScheduleDraftService(
+            TripService tripService,
+            ChatService chatService,
+            AiScheduleClient aiScheduleClient,
+            TripScheduleMapper scheduleMapper,
+            AiScheduleSlotValidator slotValidator
+    ) {
         this.tripService = tripService;
         this.chatService = chatService;
         this.aiScheduleClient = aiScheduleClient;
+        this.scheduleMapper = scheduleMapper;
+        this.slotValidator = slotValidator;
     }
 
     public AiScheduleDraftResponse generateDraft(
@@ -55,11 +73,14 @@ public class AiScheduleDraftService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one text chat message is required");
         }
 
-        AiScheduleDraftResponse draft = aiScheduleClient.generate(
-                trip,
-                messages,
-                normalizeText(request == null ? null : request.additionalRequest())
-        );
+        List<TripScheduleItem> existingSchedules = scheduleMapper == null
+                ? List.of()
+                : scheduleMapper.findScheduleItemsByTripId(tripId);
+        String additionalRequest = normalizeText(request == null ? null : request.additionalRequest());
+        AiScheduleDraftResponse draft = scheduleMapper == null
+                ? aiScheduleClient.generate(trip, messages, additionalRequest)
+                : aiScheduleClient.generate(trip, messages, existingSchedules, additionalRequest);
+        draft = slotValidator.normalizeAndValidate(draft, trip, existingSchedules);
         validateDraft(draft, trip);
         return new AiScheduleDraftResponse(
                 normalizeText(draft.summary()),
