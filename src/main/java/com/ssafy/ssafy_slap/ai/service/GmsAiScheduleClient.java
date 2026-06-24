@@ -52,7 +52,11 @@ public class GmsAiScheduleClient implements AiScheduleClient {
             Use ISO dates (yyyy-MM-dd) and times (HH:mm:ss).
             Existing schedules are occupied and must never overlap a suggestion.
             If the chat omits a date or time, choose an available slot inside the trip period.
-            Available hours are 07:00 inclusive through 23:00 exclusive.
+            scheduleDate is the start date, and a schedule must start at 07:00 or later.
+            A same-day schedule may end through 23:59.
+            If endTime is equal to or earlier than startTime, it means the schedule ends the next day.
+            A schedule may last at most 12 hours.
+            A schedule starting on the final trip day may end by 06:00 on the following day.
             Use a one hour duration when the chat does not specify duration.
             Suggestions in the same response must not overlap each other.
             When context gives no time preference, choose the earliest available slot.

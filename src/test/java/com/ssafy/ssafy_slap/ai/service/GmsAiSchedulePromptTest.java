@@ -6,6 +6,7 @@ import com.ssafy.ssafy_slap.trip.domain.TripScheduleItem;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.net.http.HttpClient;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,6 +32,18 @@ class GmsAiSchedulePromptTest {
         assertThat(prompt).contains("Existing schedules");
         assertThat(prompt).contains("2026-07-01 10:00-11:00");
         assertThat(prompt).contains("기존 일정");
+    }
+
+    @Test
+    void systemPromptDescribesOvernightScheduleRules() throws Exception {
+        Field field = GmsAiScheduleClient.class.getDeclaredField("SYSTEM_PROMPT");
+        field.setAccessible(true);
+        String systemPrompt = (String) field.get(null);
+
+        assertThat(systemPrompt)
+                .contains("scheduleDate is the start date")
+                .contains("12 hours")
+                .contains("06:00");
     }
 
     private TripResponse trip() {

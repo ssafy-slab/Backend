@@ -50,11 +50,125 @@ class AiScheduleSlotValidatorTest {
     }
 
     @Test
-    void rejectsScheduleOutsideSevenToTwentyThree() {
+    void rejectsScheduleStartingBeforeSeven() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
-                success(item(LocalDate.of(2026, 7, 1), LocalTime.of(22, 30), null, "야경")),
+                success(item(LocalDate.of(2026, 7, 1), LocalTime.of(6, 30), null, "아침 산책")),
                 trip(), List.of()
         )).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void acceptsSameDayScheduleEndingAtTwentyThreeFiftyNine() {
+        var result = validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 1),
+                        LocalTime.of(22, 0),
+                        LocalTime.of(23, 59),
+                        "야경"
+                )),
+                trip(), List.of()
+        );
+
+        assertThat(result.schedules()).hasSize(1);
+    }
+
+    @Test
+    void acceptsFinalDayOvernightScheduleEndingAtSix() {
+        var result = validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 3),
+                        LocalTime.of(23, 0),
+                        LocalTime.of(6, 0),
+                        "새벽 산책"
+                )),
+                trip(), List.of()
+        );
+
+        assertThat(result.schedules()).hasSize(1);
+    }
+
+    @Test
+    void rejectsFinalDayOvernightScheduleEndingAfterSix() {
+        assertThatThrownBy(() -> validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 3),
+                        LocalTime.of(23, 0),
+                        LocalTime.of(6, 1),
+                        "새벽 산책"
+                )),
+                trip(), List.of()
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("outside the trip range");
+    }
+
+    @Test
+    void acceptsScheduleLastingExactlyTwelveHours() {
+        var result = validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 1),
+                        LocalTime.of(18, 0),
+                        LocalTime.of(6, 0),
+                        "야간 일정"
+                )),
+                trip(), List.of()
+        );
+
+        assertThat(result.schedules()).hasSize(1);
+    }
+
+    @Test
+    void rejectsScheduleLongerThanTwelveHours() {
+        assertThatThrownBy(() -> validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 1),
+                        LocalTime.of(18, 0),
+                        LocalTime.of(6, 1),
+                        "너무 긴 일정"
+                )),
+                trip(), List.of()
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("longer than 12 hours");
+    }
+
+    @Test
+    void rejectsOverlapWithExistingOvernightSchedule() {
+        assertThatThrownBy(() -> validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 2),
+                        LocalTime.of(7, 0),
+                        LocalTime.of(9, 0),
+                        "아침 일정"
+                )),
+                trip(),
+                List.of(existing(
+                        LocalDate.of(2026, 7, 1),
+                        LocalTime.of(20, 0),
+                        LocalTime.of(8, 0)
+                ))
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("overlapping an existing schedule");
+    }
+
+    @Test
+    void rejectsOverlapBetweenGeneratedOvernightSuggestions() {
+        assertThatThrownBy(() -> validator.normalizeAndValidate(
+                new AiScheduleDraftResponse("일정", List.of(), List.of(
+                        item(
+                                LocalDate.of(2026, 7, 1),
+                                LocalTime.of(20, 0),
+                                LocalTime.of(8, 0),
+                                "야간 일정"
+                        ),
+                        item(
+                                LocalDate.of(2026, 7, 2),
+                                LocalTime.of(7, 0),
+                                LocalTime.of(9, 0),
+                                "아침 일정"
+                        )
+                )),
+                trip(), List.of()
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("overlapping schedule suggestions");
     }
 
     private AiScheduleDraftResponse success(AiScheduleDraftItem item) {
@@ -66,8 +180,12 @@ class AiScheduleSlotValidatorTest {
     }
 
     private TripScheduleItem existing(LocalTime start, LocalTime end) {
+        return existing(LocalDate.of(2026, 7, 1), start, end);
+    }
+
+    private TripScheduleItem existing(LocalDate date, LocalTime start, LocalTime end) {
         return new TripScheduleItem(
-                1L, 1L, null, 7L, 1, LocalDate.of(2026, 7, 1), start, end,
+                1L, 1L, null, 7L, 1, date, start, end,
                 "기존 일정", null, 1, null, null
         );
     }

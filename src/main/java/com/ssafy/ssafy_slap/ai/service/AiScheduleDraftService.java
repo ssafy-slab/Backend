@@ -100,9 +100,6 @@ public class AiScheduleDraftService {
                     || normalizeText(item.title()) == null) {
                 throw invalidAiResponse("AI returned an incomplete schedule item");
             }
-            if (item.endTime() != null && item.endTime().isBefore(item.startTime())) {
-                throw invalidAiResponse("AI returned an invalid schedule time range");
-            }
             if (outsideTripDateRange(item.scheduleDate(), trip.startDate(), trip.endDate())) {
                 throw invalidAiResponse("AI returned a schedule date outside the trip range");
             }

@@ -113,6 +113,42 @@ class AiScheduleDraftServiceTest {
                 .isEqualTo(HttpStatus.BAD_GATEWAY);
     }
 
+    @Test
+    void acceptsGeneratedScheduleEndingNextDay() {
+        TripService tripService = mock(TripService.class);
+        ChatService chatService = mock(ChatService.class);
+        AiScheduleClient aiClient = mock(AiScheduleClient.class);
+        AiScheduleDraftService service = new AiScheduleDraftService(tripService, chatService, aiClient);
+        TripResponse trip = trip();
+        List<ChatMessageResponse> messages = List.of(message("마지막 날 밤부터 새벽까지"));
+        AiScheduleDraftResponse generated = new AiScheduleDraftResponse(
+                "야간 일정",
+                List.of(),
+                List.of(new AiScheduleDraftItem(
+                        null,
+                        null,
+                        LocalDate.of(2026, 7, 3),
+                        LocalTime.of(23, 0),
+                        LocalTime.of(6, 0),
+                        "새벽 산책",
+                        null,
+                        3,
+                        1
+                ))
+        );
+
+        when(tripService.findTrip(1L, 7L)).thenReturn(trip);
+        when(chatService.findRecentMessages(7L, 1L, 100)).thenReturn(messages);
+        when(aiClient.generate(trip, messages, null)).thenReturn(generated);
+
+        AiScheduleDraftResponse response = service.generateDraft(
+                1L, 7L, new AiScheduleDraftRequest(null, null)
+        );
+
+        assertThat(response.schedules()).hasSize(1);
+        assertThat(response.schedules().get(0).endTime()).isEqualTo(LocalTime.of(6, 0));
+    }
+
     private TripResponse trip() {
         return new TripResponse(
                 1L,

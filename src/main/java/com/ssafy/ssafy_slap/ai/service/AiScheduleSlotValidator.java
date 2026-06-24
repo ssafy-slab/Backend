@@ -8,7 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +19,8 @@ import java.util.List;
 public class AiScheduleSlotValidator {
 
     private static final LocalTime DAY_START = LocalTime.of(7, 0);
-    private static final LocalTime DAY_END = LocalTime.of(23, 0);
+    private static final LocalTime FINAL_DAY_CUTOFF = LocalTime.of(6, 0);
+    private static final Duration MAX_DURATION = Duration.ofHours(12);
 
     public AiScheduleDraftResponse normalizeAndValidate(
             AiScheduleDraftResponse draft,
@@ -64,14 +67,25 @@ public class AiScheduleSlotValidator {
     }
 
     private void validateBounds(AiScheduleDraftItem item, TripResponse trip) {
-        if (!item.startTime().isBefore(item.endTime())) {
-            throw invalid("AI returned an invalid schedule time range");
-        }
-        if (item.startTime().isBefore(DAY_START) || item.endTime().isAfter(DAY_END)) {
+        LocalDateTime start = startDateTime(item);
+        LocalDateTime end = endDateTime(item);
+        if (item.startTime().isBefore(DAY_START)) {
             throw invalid("AI returned a schedule outside available hours");
+        }
+        if (Duration.between(start, end).compareTo(MAX_DURATION) > 0) {
+            throw invalid("AI returned a schedule longer than 12 hours");
         }
         if (outsideTripDateRange(item.scheduleDate(), trip.startDate(), trip.endDate())) {
             throw invalid("AI returned a schedule date outside the trip range");
+        }
+        if (trip.endDate() != null) {
+            LocalDateTime latestEnd = LocalDateTime.of(
+                    trip.endDate().plusDays(1),
+                    FINAL_DAY_CUTOFF
+            );
+            if (end.isAfter(latestEnd)) {
+                throw invalid("AI returned a schedule outside the trip range");
+            }
         }
     }
 
@@ -82,15 +96,13 @@ public class AiScheduleSlotValidator {
         if (existingSchedules == null) {
             return;
         }
+        TimeRange candidateRange = timeRange(candidate);
         for (TripScheduleItem existing : existingSchedules) {
-            if (existing == null || existing.getScheduleDate() == null || existing.getStartTime() == null
-                    || !candidate.scheduleDate().equals(existing.getScheduleDate())) {
+            if (existing == null || existing.getScheduleDate() == null || existing.getStartTime() == null) {
                 continue;
             }
-            LocalTime existingEnd = existing.getEndTime() == null
-                    ? existing.getStartTime().plusHours(1)
-                    : existing.getEndTime();
-            if (overlaps(candidate.startTime(), candidate.endTime(), existing.getStartTime(), existingEnd)) {
+            TimeRange existingRange = timeRange(existing);
+            if (overlaps(candidateRange, existingRange)) {
                 throw invalid("AI returned a schedule overlapping an existing schedule");
             }
         }
@@ -100,17 +112,42 @@ public class AiScheduleSlotValidator {
             AiScheduleDraftItem candidate,
             List<AiScheduleDraftItem> generated
     ) {
+        TimeRange candidateRange = timeRange(candidate);
         for (AiScheduleDraftItem existing : generated) {
-            if (candidate.scheduleDate().equals(existing.scheduleDate())
-                    && overlaps(candidate.startTime(), candidate.endTime(),
-                    existing.startTime(), existing.endTime())) {
+            if (overlaps(candidateRange, timeRange(existing))) {
                 throw invalid("AI returned overlapping schedule suggestions");
             }
         }
     }
 
-    private boolean overlaps(LocalTime start, LocalTime end, LocalTime otherStart, LocalTime otherEnd) {
-        return start.isBefore(otherEnd) && otherStart.isBefore(end);
+    private boolean overlaps(TimeRange range, TimeRange other) {
+        return range.start().isBefore(other.end()) && other.start().isBefore(range.end());
+    }
+
+    private TimeRange timeRange(AiScheduleDraftItem item) {
+        return new TimeRange(startDateTime(item), endDateTime(item));
+    }
+
+    private TimeRange timeRange(TripScheduleItem item) {
+        LocalDateTime start = LocalDateTime.of(item.getScheduleDate(), item.getStartTime());
+        if (item.getEndTime() == null) {
+            return new TimeRange(start, start.plusHours(1));
+        }
+        LocalDate endDate = item.getEndTime().isAfter(item.getStartTime())
+                ? item.getScheduleDate()
+                : item.getScheduleDate().plusDays(1);
+        return new TimeRange(start, LocalDateTime.of(endDate, item.getEndTime()));
+    }
+
+    private LocalDateTime startDateTime(AiScheduleDraftItem item) {
+        return LocalDateTime.of(item.scheduleDate(), item.startTime());
+    }
+
+    private LocalDateTime endDateTime(AiScheduleDraftItem item) {
+        LocalDate endDate = item.endTime().isAfter(item.startTime())
+                ? item.scheduleDate()
+                : item.scheduleDate().plusDays(1);
+        return LocalDateTime.of(endDate, item.endTime());
     }
 
     private boolean outsideTripDateRange(LocalDate date, LocalDate startDate, LocalDate endDate) {
@@ -120,5 +157,8 @@ public class AiScheduleSlotValidator {
 
     private ResponseStatusException invalid(String message) {
         return new ResponseStatusException(HttpStatus.BAD_GATEWAY, message);
+    }
+
+    private record TimeRange(LocalDateTime start, LocalDateTime end) {
     }
 }
