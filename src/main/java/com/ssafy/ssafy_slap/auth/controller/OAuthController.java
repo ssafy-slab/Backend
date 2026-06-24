@@ -5,6 +5,7 @@ import com.ssafy.ssafy_slap.auth.dto.OAuthTicketRequest;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthProvider;
 import com.ssafy.ssafy_slap.auth.service.OAuthLoginTicketStore;
 import com.ssafy.ssafy_slap.auth.service.OAuthService;
+import com.ssafy.ssafy_slap.auth.service.AuthSession;
 import com.ssafy.ssafy_slap.global.config.AppFrontendProperties;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,12 +42,19 @@ public class OAuthController {
     private final OAuthService oauthService;
     private final OAuthLoginTicketStore ticketStore;
     private final AppFrontendProperties frontendProperties;
+    private final RefreshTokenCookie refreshTokenCookie;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public OAuthController(OAuthService oauthService, OAuthLoginTicketStore ticketStore, AppFrontendProperties frontendProperties) {
+    public OAuthController(
+            OAuthService oauthService,
+            OAuthLoginTicketStore ticketStore,
+            AppFrontendProperties frontendProperties,
+            RefreshTokenCookie refreshTokenCookie
+    ) {
         this.oauthService = oauthService;
         this.ticketStore = ticketStore;
         this.frontendProperties = frontendProperties;
+        this.refreshTokenCookie = refreshTokenCookie;
     }
 
     @PostMapping("/{provider}/authorize")
@@ -95,7 +103,7 @@ public class OAuthController {
 
         Cookie cookie = WebUtils.getCookie(request, STATE_COOKIE);
         try {
-            AuthResponse response = oauthService.login(
+            AuthSession response = oauthService.login(
                     OAuthProvider.fromPath(provider),
                     code,
                     state,
@@ -116,8 +124,14 @@ public class OAuthController {
     }
 
     @PostMapping("/token")
-    public AuthResponse exchangeTicket(@Valid @RequestBody OAuthTicketRequest request) {
-        return ticketStore.consume(request.ticket());
+    public ResponseEntity<AuthResponse> exchangeTicket(@Valid @RequestBody OAuthTicketRequest request) {
+        AuthSession session = ticketStore.consume(request.ticket());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.create(
+                        session.refreshToken().token(),
+                        session.refreshToken().expiresAt()
+                ).toString())
+                .body(session.response());
     }
 
     private ResponseEntity<Void> redirectToFrontend(HttpServletRequest request, String fragment) {

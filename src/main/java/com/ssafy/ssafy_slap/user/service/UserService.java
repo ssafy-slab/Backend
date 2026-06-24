@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.user.service;
 
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
+import com.ssafy.ssafy_slap.auth.service.RefreshTokenService;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.dto.ProfileUpdateRequest;
 import com.ssafy.ssafy_slap.user.dto.PasswordChangeRequest;
@@ -16,10 +17,12 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
-    public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional(readOnly = true)
@@ -42,6 +45,7 @@ public class UserService {
     @Transactional
     public void deleteAccount(Long userId) {
         findActiveUser(userId);
+        refreshTokenService.revokeAll(userId);
         userMapper.deleteOAuthAccounts(userId);
         userMapper.anonymizeAndSoftDelete(userId, deletedEmail(userId));
     }
@@ -56,6 +60,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
         userMapper.updatePasswordHash(userId, passwordEncoder.encode(request.newPassword()));
+        refreshTokenService.revokeAll(userId);
     }
 
     private AppUser findActiveUser(Long userId) {

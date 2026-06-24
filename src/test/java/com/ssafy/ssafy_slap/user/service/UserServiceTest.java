@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.user.service;
 
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
+import com.ssafy.ssafy_slap.auth.service.RefreshTokenService;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.dto.ProfileUpdateRequest;
 import com.ssafy.ssafy_slap.user.dto.PasswordChangeRequest;
@@ -24,7 +25,7 @@ class UserServiceTest {
     @Test
     void updatesCurrentUserNickname() {
         UserMapper userMapper = mock(UserMapper.class);
-        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class));
+        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class), mock(RefreshTokenService.class));
 
         AppUser user = activeUser(1L, "old");
         AppUser updatedUser = activeUser(1L, "new");
@@ -40,7 +41,7 @@ class UserServiceTest {
     @Test
     void anonymizesUserAndUnlinksOAuthAccountsWhenDeletingCurrentUser() {
         UserMapper userMapper = mock(UserMapper.class);
-        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class));
+        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class), mock(RefreshTokenService.class));
 
         when(userMapper.findActiveById(1L)).thenReturn(Optional.of(activeUser(1L, "tester")));
 
@@ -54,7 +55,7 @@ class UserServiceTest {
     @Test
     void rejectsBlankNickname() {
         UserMapper userMapper = mock(UserMapper.class);
-        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class));
+        UserService userService = new UserService(userMapper, mock(PasswordEncoder.class), mock(RefreshTokenService.class));
 
         assertThatThrownBy(() -> userService.updateProfile(1L, new ProfileUpdateRequest(" ")))
                 .isInstanceOf(ResponseStatusException.class)
@@ -65,7 +66,7 @@ class UserServiceTest {
     void changesPasswordWhenCurrentPasswordMatches() {
         UserMapper userMapper = mock(UserMapper.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-        UserService userService = new UserService(userMapper, passwordEncoder);
+        UserService userService = new UserService(userMapper, passwordEncoder, mock(RefreshTokenService.class));
         AppUser user = activeUser(1L, "tester");
 
         when(userMapper.findActiveById(1L)).thenReturn(Optional.of(user));
@@ -81,7 +82,7 @@ class UserServiceTest {
     void rejectsPasswordChangeWhenCurrentPasswordDoesNotMatch() {
         UserMapper userMapper = mock(UserMapper.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-        UserService userService = new UserService(userMapper, passwordEncoder);
+        UserService userService = new UserService(userMapper, passwordEncoder, mock(RefreshTokenService.class));
         AppUser user = activeUser(1L, "tester");
 
         when(userMapper.findActiveById(1L)).thenReturn(Optional.of(user));
@@ -101,7 +102,7 @@ class UserServiceTest {
     void rejectsPasswordChangeForOAuthAccount() {
         UserMapper userMapper = mock(UserMapper.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-        UserService userService = new UserService(userMapper, passwordEncoder);
+        UserService userService = new UserService(userMapper, passwordEncoder, mock(RefreshTokenService.class));
         AppUser user = activeUser(1L, "tester");
         user.setPasswordHash(null);
 

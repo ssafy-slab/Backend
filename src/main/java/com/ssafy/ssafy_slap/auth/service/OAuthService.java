@@ -1,7 +1,5 @@
 package com.ssafy.ssafy_slap.auth.service;
 
-import com.ssafy.ssafy_slap.auth.dto.AuthResponse;
-import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthClient;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthProperties;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthProvider;
@@ -22,17 +20,37 @@ public class OAuthService {
 
     private final UserMapper userMapper;
     private final OAuthClient oauthClient;
-    private final JwtTokenProvider tokenProvider;
+    private final AuthSessionService authSessionService;
+    private final JwtTokenProvider legacyTokenProvider;
     private final OAuthProperties properties;
     private final SecureRandom secureRandom;
 
-    public OAuthService(UserMapper userMapper, OAuthClient oauthClient, JwtTokenProvider tokenProvider) {
+    public OAuthService(UserMapper userMapper, OAuthClient oauthClient, AuthSessionService authSessionService) {
+        this(userMapper, oauthClient, authSessionService, new OAuthProperties(), new SecureRandom());
+    }
+
+    OAuthService(UserMapper userMapper, OAuthClient oauthClient, JwtTokenProvider tokenProvider) {
         this(userMapper, oauthClient, tokenProvider, new OAuthProperties(), new SecureRandom());
     }
 
     @Autowired
-    public OAuthService(UserMapper userMapper, OAuthClient oauthClient, JwtTokenProvider tokenProvider, OAuthProperties properties) {
-        this(userMapper, oauthClient, tokenProvider, properties, new SecureRandom());
+    public OAuthService(UserMapper userMapper, OAuthClient oauthClient, AuthSessionService authSessionService, OAuthProperties properties) {
+        this(userMapper, oauthClient, authSessionService, properties, new SecureRandom());
+    }
+
+    OAuthService(
+            UserMapper userMapper,
+            OAuthClient oauthClient,
+            AuthSessionService authSessionService,
+            OAuthProperties properties,
+            SecureRandom secureRandom
+    ) {
+        this.userMapper = userMapper;
+        this.oauthClient = oauthClient;
+        this.authSessionService = authSessionService;
+        this.legacyTokenProvider = null;
+        this.properties = properties;
+        this.secureRandom = secureRandom;
     }
 
     OAuthService(
@@ -44,7 +62,8 @@ public class OAuthService {
     ) {
         this.userMapper = userMapper;
         this.oauthClient = oauthClient;
-        this.tokenProvider = tokenProvider;
+        this.authSessionService = null;
+        this.legacyTokenProvider = tokenProvider;
         this.properties = properties;
         this.secureRandom = secureRandom;
     }
@@ -65,7 +84,7 @@ public class OAuthService {
     }
 
     @Transactional
-    public AuthResponse login(OAuthProvider provider, String code, String state, String expectedState) {
+    public AuthSession login(OAuthProvider provider, String code, String state, String expectedState) {
         if (state == null || expectedState == null || !state.equals(expectedState)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid OAuth state");
         }
@@ -113,11 +132,17 @@ public class OAuthService {
         return user;
     }
 
-    private AuthResponse createAuthResponse(AppUser user) {
-        return new AuthResponse(
-                "Bearer",
-                tokenProvider.createAccessToken(user.getUserId(), user.getRole()),
-                AuthUserResponse.from(user)
+    private AuthSession createAuthResponse(AppUser user) {
+        if (authSessionService != null) {
+            return authSessionService.create(user);
+        }
+        return new AuthSession(
+                new com.ssafy.ssafy_slap.auth.dto.AuthResponse(
+                        "Bearer",
+                        legacyTokenProvider.createAccessToken(user.getUserId(), user.getRole()),
+                        com.ssafy.ssafy_slap.auth.dto.AuthUserResponse.from(user)
+                ),
+                new IssuedRefreshToken("test-refresh-token", java.time.Instant.MAX)
         );
     }
 

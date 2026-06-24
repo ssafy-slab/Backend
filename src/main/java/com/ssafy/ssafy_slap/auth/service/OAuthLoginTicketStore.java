@@ -1,6 +1,5 @@
 package com.ssafy.ssafy_slap.auth.service;
 
-import com.ssafy.ssafy_slap.auth.dto.AuthResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,14 +19,14 @@ public class OAuthLoginTicketStore {
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, TicketEntry> tickets = new ConcurrentHashMap<>();
 
-    public String create(AuthResponse response) {
+    public String create(AuthSession response) {
         cleanupExpiredTickets();
         String ticket = createTicket();
         tickets.put(ticket, new TicketEntry(response, Instant.now().plus(TICKET_TTL)));
         return ticket;
     }
 
-    public AuthResponse consume(String ticket) {
+    public AuthSession consume(String ticket) {
         if (ticket == null || ticket.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OAuth ticket is required");
         }
@@ -50,6 +49,6 @@ public class OAuthLoginTicketStore {
         tickets.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
     }
 
-    private record TicketEntry(AuthResponse response, Instant expiresAt) {
+    private record TicketEntry(AuthSession response, Instant expiresAt) {
     }
 }

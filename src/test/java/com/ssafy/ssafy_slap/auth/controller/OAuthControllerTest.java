@@ -5,8 +5,11 @@ import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.oauth.OAuthProvider;
 import com.ssafy.ssafy_slap.auth.service.OAuthLoginTicketStore;
 import com.ssafy.ssafy_slap.auth.service.OAuthService;
+import com.ssafy.ssafy_slap.auth.service.AuthSession;
+import com.ssafy.ssafy_slap.auth.service.IssuedRefreshToken;
 import com.ssafy.ssafy_slap.global.config.AppFrontendProperties;
 import jakarta.servlet.http.Cookie;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,7 +42,7 @@ class OAuthControllerTest {
         when(oauthService.createAuthorizationUrl(eq(OAuthProvider.KAKAO), anyString()))
                 .thenReturn("https://kauth.kakao.com/oauth/authorize?state=generated");
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .standaloneSetup(controller(oauthService, ticketStore))
                 .build();
 
         MvcResult result = mockMvc.perform(post("/api/oauth/kakao/authorize")
@@ -65,11 +68,12 @@ class OAuthControllerTest {
                 "jwt-token",
                 new AuthUserResponse(8L, "kakao@example.com", "tester", "USER", false)
         );
+        AuthSession session = session(response);
         when(oauthService.login(OAuthProvider.KAKAO, "code-123", "state-123", "state-123"))
-                .thenReturn(response);
-        when(ticketStore.create(response)).thenReturn("ticket-123");
+                .thenReturn(session);
+        when(ticketStore.create(session)).thenReturn("ticket-123");
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .standaloneSetup(controller(oauthService, ticketStore))
                 .build();
 
         mockMvc.perform(get("/api/oauth/kakao/callback")
@@ -90,11 +94,12 @@ class OAuthControllerTest {
                 "jwt-token",
                 new AuthUserResponse(8L, "kakao@example.com", "tester", "USER", false)
         );
+        AuthSession session = session(response);
         when(oauthService.login(OAuthProvider.KAKAO, "code-123", "state-123", "state-123"))
-                .thenReturn(response);
-        when(ticketStore.create(response)).thenReturn("ticket-123");
+                .thenReturn(session);
+        when(ticketStore.create(session)).thenReturn("ticket-123");
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .standaloneSetup(controller(oauthService, ticketStore))
                 .build();
 
         mockMvc.perform(get("/api/oauth/kakao/callback")
@@ -111,7 +116,7 @@ class OAuthControllerTest {
         OAuthService oauthService = mock(OAuthService.class);
         OAuthLoginTicketStore ticketStore = mock(OAuthLoginTicketStore.class);
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .standaloneSetup(controller(oauthService, ticketStore))
                 .build();
 
         mockMvc.perform(get("/api/oauth/kakao/callback")
@@ -130,9 +135,9 @@ class OAuthControllerTest {
                 "jwt-token",
                 new AuthUserResponse(8L, "kakao@example.com", "tester", "USER", false)
         );
-        when(ticketStore.consume("ticket-123")).thenReturn(response);
+        when(ticketStore.consume("ticket-123")).thenReturn(session(response));
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new OAuthController(oauthService, ticketStore, frontendProperties))
+                .standaloneSetup(controller(oauthService, ticketStore))
                 .build();
 
         mockMvc.perform(post("/api/oauth/token")
@@ -142,6 +147,23 @@ class OAuthControllerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.accessToken").value("jwt-token"))
-                .andExpect(jsonPath("$.user.userId").value(8));
+                .andExpect(jsonPath("$.user.userId").value(8))
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("HttpOnly")));
+    }
+
+    private OAuthController controller(OAuthService oauthService, OAuthLoginTicketStore ticketStore) {
+        return new OAuthController(
+                oauthService,
+                ticketStore,
+                frontendProperties,
+                new RefreshTokenCookie(true, "None")
+        );
+    }
+
+    private AuthSession session(AuthResponse response) {
+        return new AuthSession(
+                response,
+                new IssuedRefreshToken("refresh-token", Instant.now().plusSeconds(3600))
+        );
     }
 }

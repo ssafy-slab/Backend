@@ -1,6 +1,5 @@
 package com.ssafy.ssafy_slap.auth.service;
 
-import com.ssafy.ssafy_slap.auth.dto.AuthResponse;
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.dto.LoginRequest;
 import com.ssafy.ssafy_slap.auth.dto.SignupRequest;
@@ -8,6 +7,7 @@ import com.ssafy.ssafy_slap.auth.dto.PasswordResetRequest;
 import com.ssafy.ssafy_slap.user.domain.AppUser;
 import com.ssafy.ssafy_slap.user.mapper.UserMapper;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,16 +18,34 @@ public class AuthService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider tokenProvider;
+    private final AuthSessionService authSessionService;
+    private final RefreshTokenService refreshTokenService;
+    private final JwtTokenProvider legacyTokenProvider;
 
-    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
+    @Autowired
+    public AuthService(
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            AuthSessionService authSessionService,
+            RefreshTokenService refreshTokenService
+    ) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
-        this.tokenProvider = tokenProvider;
+        this.authSessionService = authSessionService;
+        this.refreshTokenService = refreshTokenService;
+        this.legacyTokenProvider = null;
+    }
+
+    AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.authSessionService = null;
+        this.refreshTokenService = null;
+        this.legacyTokenProvider = tokenProvider;
     }
 
     @Transactional
-    public AuthResponse signup(SignupRequest request) {
+    public AuthSession signup(SignupRequest request) {
         String email = normalizeEmail(request.email());
         if (userMapper.existsActiveByEmail(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
@@ -53,13 +71,13 @@ public class AuthService {
         return createAuthResponse(user);
     }
 
-    @Transactional(readOnly = true)
-    public AuthResponse login(LoginRequest request) {
+    @Transactional
+    public AuthSession login(LoginRequest request) {
         return login(request.email(), request.password());
     }
 
-    @Transactional(readOnly = true)
-    public AuthResponse login(String email, String password) {
+    @Transactional
+    public AuthSession login(String email, String password) {
         AppUser user = userMapper.findActiveByEmail(normalizeEmail(email))
                 .filter(candidate -> candidate.getPasswordHash() != null)
                 .filter(candidate -> passwordEncoder.matches(password, candidate.getPasswordHash()))
@@ -72,6 +90,9 @@ public class AuthService {
     public void resetPassword(PasswordResetRequest request) {
         AppUser user = findActiveLocalUser(request.email());
         userMapper.updatePasswordHash(user.getUserId(), passwordEncoder.encode(request.newPassword()));
+        if (refreshTokenService != null) {
+            refreshTokenService.revokeAll(user.getUserId());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -88,11 +109,17 @@ public class AuthService {
         return user;
     }
 
-    private AuthResponse createAuthResponse(AppUser user) {
-        return new AuthResponse(
-                "Bearer",
-                tokenProvider.createAccessToken(user.getUserId(), user.getRole()),
-                AuthUserResponse.from(user)
+    private AuthSession createAuthResponse(AppUser user) {
+        if (authSessionService != null) {
+            return authSessionService.create(user);
+        }
+        return new AuthSession(
+                new com.ssafy.ssafy_slap.auth.dto.AuthResponse(
+                        "Bearer",
+                        legacyTokenProvider.createAccessToken(user.getUserId(), user.getRole()),
+                        AuthUserResponse.from(user)
+                ),
+                new IssuedRefreshToken("test-refresh-token", java.time.Instant.MAX)
         );
     }
 
