@@ -69,7 +69,8 @@ public class AiScheduleSlotValidator {
     private void validateBounds(AiScheduleDraftItem item, TripResponse trip) {
         LocalDateTime start = startDateTime(item);
         LocalDateTime end = endDateTime(item);
-        if (item.startTime().isBefore(DAY_START)) {
+        boolean finalMorning = isFinalMorning(item.scheduleDate(), trip.endDate());
+        if (item.startTime().isBefore(DAY_START) && !finalMorning) {
             throw invalid("AI returned a schedule outside available hours");
         }
         if (Duration.between(start, end).compareTo(MAX_DURATION) > 0) {
@@ -152,7 +153,11 @@ public class AiScheduleSlotValidator {
 
     private boolean outsideTripDateRange(LocalDate date, LocalDate startDate, LocalDate endDate) {
         return startDate != null && date.isBefore(startDate)
-                || endDate != null && date.isAfter(endDate);
+                || endDate != null && date.isAfter(endDate.plusDays(1));
+    }
+
+    private boolean isFinalMorning(LocalDate scheduleDate, LocalDate tripEndDate) {
+        return tripEndDate != null && scheduleDate.equals(tripEndDate.plusDays(1));
     }
 
     private ResponseStatusException invalid(String message) {

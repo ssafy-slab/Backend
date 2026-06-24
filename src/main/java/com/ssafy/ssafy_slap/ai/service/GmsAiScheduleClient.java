@@ -57,6 +57,7 @@ public class GmsAiScheduleClient implements AiScheduleClient {
             If endTime is equal to or earlier than startTime, it means the schedule ends the next day.
             A schedule may last at most 12 hours.
             A schedule starting on the final trip day may end by 06:00 on the following day.
+            A schedule on that following day may start before 07:00, but it must end by 06:00.
             Use a one hour duration when the chat does not specify duration.
             Suggestions in the same response must not overlap each other.
             When context gives no time preference, choose the earliest available slot.

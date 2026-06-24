@@ -43,7 +43,8 @@ class GmsAiSchedulePromptTest {
         assertThat(systemPrompt)
                 .contains("scheduleDate is the start date")
                 .contains("12 hours")
-                .contains("06:00");
+                .contains("06:00")
+                .contains("following day may start before 07:00");
     }
 
     private TripResponse trip() {

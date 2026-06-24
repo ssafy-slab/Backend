@@ -88,6 +88,35 @@ class AiScheduleSlotValidatorTest {
     }
 
     @Test
+    void acceptsEarlyMorningScheduleOnDayAfterTripEnds() {
+        var result = validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 4),
+                        LocalTime.MIDNIGHT,
+                        LocalTime.of(2, 0),
+                        "새벽 모임"
+                )),
+                trip(), List.of()
+        );
+
+        assertThat(result.schedules()).hasSize(1);
+    }
+
+    @Test
+    void rejectsScheduleOnDayAfterTripEndingAfterSix() {
+        assertThatThrownBy(() -> validator.normalizeAndValidate(
+                success(item(
+                        LocalDate.of(2026, 7, 4),
+                        LocalTime.of(5, 0),
+                        LocalTime.of(6, 1),
+                        "늦은 새벽 일정"
+                )),
+                trip(), List.of()
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("outside the trip range");
+    }
+
+    @Test
     void rejectsFinalDayOvernightScheduleEndingAfterSix() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 success(item(

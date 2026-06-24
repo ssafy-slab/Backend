@@ -108,7 +108,7 @@ public class AiScheduleDraftService {
 
     private boolean outsideTripDateRange(LocalDate scheduleDate, LocalDate startDate, LocalDate endDate) {
         return startDate != null && scheduleDate.isBefore(startDate)
-                || endDate != null && scheduleDate.isAfter(endDate);
+                || endDate != null && scheduleDate.isAfter(endDate.plusDays(1));
     }
 
     private ResponseStatusException invalidAiResponse(String message) {

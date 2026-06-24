@@ -149,6 +149,43 @@ class AiScheduleDraftServiceTest {
         assertThat(response.schedules().get(0).endTime()).isEqualTo(LocalTime.of(6, 0));
     }
 
+    @Test
+    void acceptsGeneratedEarlyMorningScheduleOnDayAfterTripEnds() {
+        TripService tripService = mock(TripService.class);
+        ChatService chatService = mock(ChatService.class);
+        AiScheduleClient aiClient = mock(AiScheduleClient.class);
+        AiScheduleDraftService service = new AiScheduleDraftService(tripService, chatService, aiClient);
+        TripResponse trip = trip();
+        List<ChatMessageResponse> messages = List.of(message("26일 0시부터 2시까지 맥주"));
+        AiScheduleDraftResponse generated = new AiScheduleDraftResponse(
+                "여행 마무리",
+                List.of(),
+                List.of(new AiScheduleDraftItem(
+                        "서대전공원",
+                        "대전",
+                        LocalDate.of(2026, 7, 4),
+                        LocalTime.MIDNIGHT,
+                        LocalTime.of(2, 0),
+                        "공원에서 맥주",
+                        null,
+                        4,
+                        1
+                ))
+        );
+
+        when(tripService.findTrip(1L, 7L)).thenReturn(trip);
+        when(chatService.findRecentMessages(7L, 1L, 100)).thenReturn(messages);
+        when(aiClient.generate(trip, messages, null)).thenReturn(generated);
+
+        AiScheduleDraftResponse response = service.generateDraft(
+                1L, 7L, new AiScheduleDraftRequest(null, null)
+        );
+
+        assertThat(response.schedules()).hasSize(1);
+        assertThat(response.schedules().get(0).startTime()).isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(response.schedules().get(0).endTime()).isEqualTo(LocalTime.of(2, 0));
+    }
+
     private TripResponse trip() {
         return new TripResponse(
                 1L,
