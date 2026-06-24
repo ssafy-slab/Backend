@@ -18,6 +18,7 @@ public record CommunityPostSummaryResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Boolean likedByMe,
+        Boolean bookmarkedByMe,
         Boolean mine
 ) {
 }

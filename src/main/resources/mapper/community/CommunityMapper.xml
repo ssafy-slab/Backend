@@ -11,10 +11,12 @@
         <choose>
             <when test="currentUserId != null">
                 CASE WHEN my_like.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+                CASE WHEN my_bookmark.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS bookmarkedByMe,
                 CASE WHEN p.user_id = #{currentUserId} THEN TRUE ELSE FALSE END AS mine
             </when>
             <otherwise>
                 FALSE AS likedByMe,
+                FALSE AS bookmarkedByMe,
                 FALSE AS mine
             </otherwise>
         </choose>
@@ -38,6 +40,9 @@
             LEFT JOIN COMMUNITY_POST_LIKE my_like
               ON my_like.post_id = p.post_id
              AND my_like.user_id = #{currentUserId}
+            LEFT JOIN COMMUNITY_POST_BOOKMARK my_bookmark
+              ON my_bookmark.post_id = p.post_id
+             AND my_bookmark.user_id = #{currentUserId}
         </if>
     </sql>
 
@@ -134,10 +139,12 @@
             <choose>
                 <when test="currentUserId != null">
                     CASE WHEN my_like.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+                    CASE WHEN my_bookmark.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS bookmarkedByMe,
                     CASE WHEN p.user_id = #{currentUserId} THEN TRUE ELSE FALSE END AS mine
                 </when>
                 <otherwise>
                     FALSE AS likedByMe,
+                    FALSE AS bookmarkedByMe,
                     FALSE AS mine
                 </otherwise>
             </choose>
@@ -276,6 +283,76 @@
         WHERE post_id = #{postId}
           AND user_id = #{userId}
     </delete>
+
+    <select id="existsBookmark" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM COMMUNITY_POST_BOOKMARK
+            WHERE post_id = #{postId}
+              AND user_id = #{userId}
+        )
+    </select>
+
+    <insert id="insertBookmark">
+        INSERT IGNORE INTO COMMUNITY_POST_BOOKMARK (post_id, user_id)
+        VALUES (#{postId}, #{userId})
+    </insert>
+
+    <delete id="deleteBookmark">
+        DELETE FROM COMMUNITY_POST_BOOKMARK
+        WHERE post_id = #{postId}
+          AND user_id = #{userId}
+    </delete>
+
+    <select id="findBookmarkedPosts"
+            resultType="com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse">
+        SELECT
+            p.post_id AS postId,
+            p.user_id AS userId,
+            u.nickname AS authorNickname,
+            p.place_id AS placeId,
+            pl.place_name AS placeName,
+            p.category AS category,
+            p.title AS title,
+            CASE
+                WHEN p.content IS NULL THEN NULL
+                WHEN CHAR_LENGTH(p.content) &gt; 100 THEN CONCAT(SUBSTRING(p.content, 1, 100), '...')
+                ELSE p.content
+            END AS excerpt,
+            p.image_url AS imageUrl,
+            COALESCE(likes.like_count, 0) AS likeCount,
+            COALESCE(comments.comment_count, 0) AS commentCount,
+            p.view_count AS viewCount,
+            p.created_at AS createdAt,
+            p.updated_at AS updatedAt,
+            CASE WHEN my_like.post_id IS NOT NULL THEN TRUE ELSE FALSE END AS likedByMe,
+            TRUE AS bookmarkedByMe,
+            CASE WHEN p.user_id = #{userId} THEN TRUE ELSE FALSE END AS mine
+        FROM COMMUNITY_POST_BOOKMARK bookmark
+        JOIN COMMUNITY_POST p
+          ON p.post_id = bookmark.post_id
+         AND p.status = 'ACTIVE'
+        JOIN APP_USER u ON u.user_id = p.user_id
+        LEFT JOIN PLACE pl ON pl.place_id = p.place_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) AS like_count
+            FROM COMMUNITY_POST_LIKE
+            GROUP BY post_id
+        ) likes ON likes.post_id = p.post_id
+        LEFT JOIN (
+            SELECT post_id, COUNT(*) AS comment_count
+            FROM `COMMENT`
+            WHERE status = 'ACTIVE'
+            GROUP BY post_id
+        ) comments ON comments.post_id = p.post_id
+        LEFT JOIN COMMUNITY_POST_LIKE my_like
+          ON my_like.post_id = p.post_id
+         AND my_like.user_id = #{userId}
+        WHERE bookmark.user_id = #{userId}
+        ORDER BY bookmark.created_at DESC, p.post_id DESC
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
 
     <select id="findComments" resultType="com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse">
         SELECT

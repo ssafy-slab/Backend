@@ -2,6 +2,8 @@ package com.ssafy.ssafy_slap.user.controller;
 
 import com.ssafy.ssafy_slap.auth.dto.AuthUserResponse;
 import com.ssafy.ssafy_slap.auth.service.AuthenticatedUser;
+import com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse;
+import com.ssafy.ssafy_slap.community.service.CommunityService;
 import com.ssafy.ssafy_slap.user.dto.ProfileUpdateRequest;
 import com.ssafy.ssafy_slap.user.dto.PasswordChangeRequest;
 import com.ssafy.ssafy_slap.user.service.UserService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -22,14 +25,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserController {
 
     private final UserService userService;
+    private final CommunityService communityService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, CommunityService communityService) {
         this.userService = userService;
+        this.communityService = communityService;
     }
 
     @GetMapping
     public AuthUserResponse getCurrentUser(Authentication authentication) {
         return userService.findCurrentUser(currentUserId(authentication));
+    }
+
+    @GetMapping("/bookmarked-community-posts")
+    public java.util.List<CommunityPostSummaryResponse> getBookmarkedCommunityPosts(
+            Authentication authentication,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        return communityService.findBookmarkedPosts(currentUserId(authentication), page, size);
     }
 
     @PatchMapping

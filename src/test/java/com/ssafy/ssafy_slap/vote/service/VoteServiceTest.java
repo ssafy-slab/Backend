@@ -90,6 +90,8 @@ class VoteServiceTest {
                 new VoteOption(102L, 10L, null, "해산물", null, 1, 1L)
         ));
         when(mapper.findSelectedOptionId(10L, 7L)).thenReturn(102L);
+        when(mapper.countAcceptedTripMembers(1L)).thenReturn(4L);
+        when(mapper.countAcceptedMemberBallots(1L, 10L)).thenReturn(3L);
 
         var response = service.findVote(1L, 10L, 7L);
 
@@ -97,6 +99,9 @@ class VoteServiceTest {
         assertThat(response.totalBallotCount()).isEqualTo(3L);
         assertThat(response.options()).extracting(option -> option.voteCount())
                 .containsExactly(2L, 1L);
+        assertThat(response.eligibleVoterCount()).isEqualTo(4L);
+        assertThat(response.votedMemberCount()).isEqualTo(3L);
+        assertThat(response.allMembersVoted()).isFalse();
     }
 
     @Test

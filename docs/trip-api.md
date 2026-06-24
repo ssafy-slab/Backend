@@ -629,7 +629,10 @@ POST /api/trips/{tripId}/ai/suggestions/{suggestionId}/vote
 ```
 
 This creates one vote with `찬성` and `반대` options and changes the suggestion status to `VOTING`.
-The suggestion response includes `voteId`. Closing the vote applies the suggestion only when approval
+The suggestion response includes `voteId`.
+The vote response exposes `eligibleVoterCount`, `votedMemberCount`, and `allMembersVoted`.
+Closing an AI suggestion vote returns `409 Conflict` until every accepted trip member has voted.
+Closing the vote applies the suggestion only when approval
 has more ballots than rejection; ties and rejection majorities mark it `REJECTED`.
 
 Configuration:

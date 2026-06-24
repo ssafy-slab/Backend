@@ -82,6 +82,31 @@ class AiSuggestionVoteOutcomeProcessorTest {
         verify(suggestionMapper, never()).markAppliedFromVoting(any(), any());
     }
 
+    @Test
+    void rejectsCloseUntilEveryAcceptedTripMemberHasVoted() {
+        AiSuggestionMapper suggestionMapper = mock(AiSuggestionMapper.class);
+        VoteMapper voteMapper = mock(VoteMapper.class);
+        TripScheduleMapper scheduleMapper = mock(TripScheduleMapper.class);
+        var processor = new AiSuggestionVoteOutcomeProcessor(suggestionMapper, voteMapper, scheduleMapper);
+        stubLinkedVote(suggestionMapper, voteMapper, 1L, 1L);
+        when(voteMapper.countAcceptedTripMembers(1L)).thenReturn(3L);
+        when(voteMapper.countAcceptedMemberBallots(1L, 20L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> processor.beforeClose(1L, 20L, 7L))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(exception -> {
+                    ResponseStatusException statusException = (ResponseStatusException) exception;
+                    org.assertj.core.api.Assertions.assertThat(statusException.getStatusCode().value())
+                            .isEqualTo(409);
+                    org.assertj.core.api.Assertions.assertThat(statusException.getReason())
+                            .isEqualTo("All trip members must vote before closing");
+                });
+
+        verify(scheduleMapper, never()).insertScheduleItem(any());
+        verify(suggestionMapper, never()).markRejectedFromVoting(any());
+        verify(suggestionMapper, never()).markSuggestionVoteResolved(any(), any());
+    }
+
     private void stubLinkedVote(
             AiSuggestionMapper suggestionMapper,
             VoteMapper voteMapper,
@@ -94,6 +119,8 @@ class AiSuggestionVoteOutcomeProcessorTest {
                 new VoteOption(201L, 20L, null, "찬성", null, 0, approveCount),
                 new VoteOption(202L, 20L, null, "반대", null, 1, rejectCount)
         ));
+        when(voteMapper.countAcceptedTripMembers(1L)).thenReturn(approveCount + rejectCount);
+        when(voteMapper.countAcceptedMemberBallots(1L, 20L)).thenReturn(approveCount + rejectCount);
     }
 
     private AiSuggestion suggestion() {

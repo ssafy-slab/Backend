@@ -41,6 +41,7 @@ public class AiSuggestionVoteOutcomeProcessor implements VoteCloseProcessor {
         if (link.getResolution() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Suggestion vote is already resolved");
         }
+        validateEveryAcceptedMemberVoted(tripId, voteId);
         List<VoteOption> options = voteMapper.findOptionsWithCounts(voteId);
         long approveCount = count(options, link.getApproveOptionId());
         long rejectCount = count(options, link.getRejectOptionId());
@@ -54,6 +55,17 @@ public class AiSuggestionVoteOutcomeProcessor implements VoteCloseProcessor {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "AI suggestion is no longer voting");
         }
         markResolved(voteId, "REJECTED");
+    }
+
+    private void validateEveryAcceptedMemberVoted(Long tripId, Long voteId) {
+        long acceptedMemberCount = voteMapper.countAcceptedTripMembers(tripId);
+        long acceptedMemberBallotCount = voteMapper.countAcceptedMemberBallots(tripId, voteId);
+        if (acceptedMemberCount == 0 || acceptedMemberBallotCount != acceptedMemberCount) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "All trip members must vote before closing"
+            );
+        }
     }
 
     private void applySuggestion(Long tripId, AiSuggestionVote link, Long userId) {

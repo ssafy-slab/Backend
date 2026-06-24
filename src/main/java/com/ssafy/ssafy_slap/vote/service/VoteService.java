@@ -124,7 +124,9 @@ public class VoteService {
         return VoteResponse.of(
                 vote,
                 voteMapper.findOptionsWithCounts(vote.getVoteId()),
-                voteMapper.findSelectedOptionId(vote.getVoteId(), userId)
+                voteMapper.findSelectedOptionId(vote.getVoteId(), userId),
+                voteMapper.countAcceptedTripMembers(vote.getTripId()),
+                voteMapper.countAcceptedMemberBallots(vote.getTripId(), vote.getVoteId())
         );
     }
 

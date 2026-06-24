@@ -68,7 +68,9 @@ public class AiSuggestionVoteService {
         return VoteResponse.of(
                 voteMapper.findVote(tripId, vote.getVoteId()),
                 voteMapper.findOptionsWithCounts(vote.getVoteId()),
-                voteMapper.findSelectedOptionId(vote.getVoteId(), userId)
+                voteMapper.findSelectedOptionId(vote.getVoteId(), userId),
+                voteMapper.countAcceptedTripMembers(tripId),
+                voteMapper.countAcceptedMemberBallots(tripId, vote.getVoteId())
         );
     }
 }

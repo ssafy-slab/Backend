@@ -53,6 +53,18 @@ public interface CommunityMapper {
 
     void deleteLike(@Param("postId") Long postId, @Param("userId") Long userId);
 
+    boolean existsBookmark(@Param("postId") Long postId, @Param("userId") Long userId);
+
+    void insertBookmark(@Param("postId") Long postId, @Param("userId") Long userId);
+
+    void deleteBookmark(@Param("postId") Long postId, @Param("userId") Long userId);
+
+    List<CommunityPostSummaryResponse> findBookmarkedPosts(
+            @Param("userId") Long userId,
+            @Param("size") int size,
+            @Param("offset") int offset
+    );
+
     List<CommunityCommentResponse> findComments(@Param("postId") Long postId, @Param("currentUserId") Long currentUserId);
 
     boolean existsActiveCommentInPost(@Param("postId") Long postId, @Param("commentId") Long commentId);

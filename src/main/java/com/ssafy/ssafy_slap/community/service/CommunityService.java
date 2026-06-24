@@ -151,6 +151,35 @@ public class CommunityService {
         }
     }
 
+    @Transactional
+    public void bookmarkPost(Long postId, Long userId) {
+        validatePostId(postId);
+        validateUser(userId);
+        ensurePostExists(postId);
+        if (!communityMapper.existsBookmark(postId, userId)) {
+            communityMapper.insertBookmark(postId, userId);
+        }
+    }
+
+    @Transactional
+    public void removeBookmark(Long postId, Long userId) {
+        validatePostId(postId);
+        validateUser(userId);
+        ensurePostExists(postId);
+        communityMapper.deleteBookmark(postId, userId);
+    }
+
+    public List<CommunityPostSummaryResponse> findBookmarkedPosts(
+            Long userId,
+            Integer requestedPage,
+            Integer requestedSize
+    ) {
+        validateUser(userId);
+        int page = requestedPage == null || requestedPage < 0 ? 0 : requestedPage;
+        int size = requestedSize == null || requestedSize < 1 ? 20 : Math.min(requestedSize, 50);
+        return communityMapper.findBookmarkedPosts(userId, size, page * size);
+    }
+
     public List<CommunityCommentResponse> findComments(Long postId, Long currentUserId) {
         validatePostId(postId);
         ensurePostExists(postId);

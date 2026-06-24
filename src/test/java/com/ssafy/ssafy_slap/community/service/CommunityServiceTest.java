@@ -258,6 +258,36 @@ class CommunityServiceTest {
     }
 
     @Test
+    void bookmarksExistingPostIdempotently() {
+        when(communityMapper.existsPost(1L)).thenReturn(true);
+        when(communityMapper.existsBookmark(1L, 7L)).thenReturn(false);
+
+        communityService.bookmarkPost(1L, 7L);
+
+        verify(communityMapper).insertBookmark(1L, 7L);
+    }
+
+    @Test
+    void removesBookmarkIdempotently() {
+        when(communityMapper.existsPost(1L)).thenReturn(true);
+
+        communityService.removeBookmark(1L, 7L);
+
+        verify(communityMapper).deleteBookmark(1L, 7L);
+    }
+
+    @Test
+    void listsCurrentUsersBookmarkedPostsWithSafePaging() {
+        var post = summary(1L, "Saved beach", 2L, 1L, false);
+        when(communityMapper.findBookmarkedPosts(7L, 50, 0)).thenReturn(List.of(post));
+
+        var result = communityService.findBookmarkedPosts(7L, -1, 100);
+
+        assertThat(result).containsExactly(post);
+        verify(communityMapper).findBookmarkedPosts(7L, 50, 0);
+    }
+
+    @Test
     void createsCommentForExistingPost() {
         when(communityMapper.existsPost(1L)).thenReturn(true);
 
@@ -373,7 +403,7 @@ class CommunityServiceTest {
         LocalDateTime now = LocalDateTime.of(2026, 6, 22, 10, 0);
         return new CommunityPostSummaryResponse(
                 postId, 7L, "traveler", 3L, "Beach", "PLACE_REVIEW", title,
-                "excerpt", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, true
+                "excerpt", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, false, true
         );
     }
 
@@ -381,7 +411,7 @@ class CommunityServiceTest {
         LocalDateTime now = LocalDateTime.of(2026, 6, 22, 10, 0);
         return new CommunityPost(
                 postId, 7L, "traveler", null, 3L, "Beach", "PLACE_REVIEW", title,
-                "content", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, true
+                "content", "https://example.com/a.jpg", likes, comments, 4L, now, now, liked, false, true
         );
     }
 

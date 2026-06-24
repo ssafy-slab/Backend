@@ -18,6 +18,8 @@ public interface VoteMapper {
     List<Vote> findVotesByTripId(@Param("tripId") Long tripId);
     List<VoteOption> findOptionsWithCounts(@Param("voteId") Long voteId);
     Long findSelectedOptionId(@Param("voteId") Long voteId, @Param("userId") Long userId);
+    long countAcceptedTripMembers(@Param("tripId") Long tripId);
+    long countAcceptedMemberBallots(@Param("tripId") Long tripId, @Param("voteId") Long voteId);
     boolean existsOption(@Param("voteId") Long voteId, @Param("voteOptionId") Long voteOptionId);
     void upsertBallot(@Param("voteId") Long voteId, @Param("voteOptionId") Long voteOptionId,
                       @Param("userId") Long userId);

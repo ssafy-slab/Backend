@@ -16,9 +16,18 @@ public record VoteResponse(
         LocalDateTime endedAt,
         List<VoteOptionResponse> options,
         Long selectedOptionId,
-        long totalBallotCount
+        long totalBallotCount,
+        long eligibleVoterCount,
+        long votedMemberCount,
+        boolean allMembersVoted
 ) {
-    public static VoteResponse of(Vote vote, List<VoteOption> options, Long selectedOptionId) {
+    public static VoteResponse of(
+            Vote vote,
+            List<VoteOption> options,
+            Long selectedOptionId,
+            long eligibleVoterCount,
+            long votedMemberCount
+    ) {
         List<VoteOptionResponse> optionResponses = options.stream()
                 .map(VoteOptionResponse::from)
                 .toList();
@@ -26,7 +35,9 @@ public record VoteResponse(
         return new VoteResponse(
                 vote.getVoteId(), vote.getTripId(), vote.getCreatorUserId(), vote.getTitle(),
                 vote.getStatus(), vote.getStartedAt(), vote.getEndedAt(),
-                optionResponses, selectedOptionId, total
+                optionResponses, selectedOptionId, total,
+                eligibleVoterCount, votedMemberCount,
+                eligibleVoterCount > 0 && eligibleVoterCount == votedMemberCount
         );
     }
 }

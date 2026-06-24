@@ -89,6 +89,26 @@
           AND user_id = #{userId}
     </select>
 
+    <select id="countAcceptedTripMembers" resultType="long">
+        SELECT COUNT(*)
+        FROM TRIP_MEMBER
+        WHERE trip_id = #{tripId}
+          AND invite_status = 'ACCEPTED'
+    </select>
+
+    <select id="countAcceptedMemberBallots" resultType="long">
+        SELECT COUNT(DISTINCT vb.user_id)
+        FROM VOTE_BALLOT vb
+        JOIN VOTE v
+          ON v.vote_id = vb.vote_id
+         AND v.trip_id = #{tripId}
+        JOIN TRIP_MEMBER tm
+          ON tm.trip_id = v.trip_id
+         AND tm.user_id = vb.user_id
+         AND tm.invite_status = 'ACCEPTED'
+        WHERE vb.vote_id = #{voteId}
+    </select>
+
     <select id="existsOption" resultType="boolean">
         SELECT EXISTS (
             SELECT 1 FROM VOTE_OPTION

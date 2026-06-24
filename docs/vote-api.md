@@ -32,6 +32,11 @@ Only the trip owner or an editor can create a vote. At least two options are req
 - `GET /api/trips/{tripId}/votes/{voteId}`
 
 Each vote response contains `options[].voteCount`, `totalBallotCount`, and the requesting user's `selectedOptionId`.
+It also contains:
+
+- `eligibleVoterCount`: accepted trip-member count
+- `votedMemberCount`: accepted members who currently have a ballot
+- `allMembersVoted`: `true` only when every accepted member has voted
 
 ## Cast or change a ballot
 
@@ -53,6 +58,7 @@ Only the trip owner or an editor can close a vote.
 
 For a vote linked to a team AI suggestion, closing also resolves the suggestion:
 
+- Every accepted trip member must vote first. Otherwise the close request returns `409 Conflict`.
 - Approval count greater than rejection count creates the schedule and marks the suggestion `APPLIED`.
 - A tie or rejection majority marks the suggestion `REJECTED`.
 - A schedule time conflict returns `409 Conflict` and leaves the vote open.
