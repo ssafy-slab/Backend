@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.community.mapper;
 
 import com.ssafy.ssafy_slap.community.domain.CommunityPost;
+import com.ssafy.ssafy_slap.community.domain.CommunityPostCell;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse;
 import org.apache.ibatis.annotations.Mapper;
@@ -19,6 +20,8 @@ public interface CommunityMapper {
 
     void insertPost(@Param("post") CommunityPost post);
 
+    void insertPostCells(@Param("postId") Long postId, @Param("cells") List<CommunityPostCell> cells);
+
     List<CommunityPostSummaryResponse> findPosts(
             @Param("category") String category,
             @Param("keyword") String keyword,
@@ -30,11 +33,17 @@ public interface CommunityMapper {
 
     CommunityPost findPostById(@Param("postId") Long postId, @Param("currentUserId") Long currentUserId);
 
+    List<CommunityPostCell> findPostCells(@Param("postId") Long postId);
+
     String findPostImageUrl(@Param("postId") Long postId, @Param("userId") Long userId);
+
+    List<String> findPostCellImageUrls(@Param("postId") Long postId);
 
     void incrementViewCount(@Param("postId") Long postId);
 
     int updatePost(@Param("post") CommunityPost post, @Param("userId") Long userId);
+
+    void deletePostCells(@Param("postId") Long postId);
 
     int deletePost(@Param("postId") Long postId, @Param("userId") Long userId);
 

@@ -85,6 +85,26 @@
         )
     </insert>
 
+    <insert id="insertPostCells">
+        INSERT INTO COMMUNITY_POST_CELL (
+            post_id,
+            sort_order,
+            cell_type,
+            text_content,
+            image_url
+        )
+        VALUES
+        <foreach collection="cells" item="cell" separator=",">
+            (
+                #{postId},
+                #{cell.sortOrder},
+                #{cell.cellType},
+                #{cell.textContent},
+                #{cell.imageUrl}
+            )
+        </foreach>
+    </insert>
+
     <select id="findPosts" resultType="com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse">
         SELECT
             p.post_id AS postId,
@@ -165,12 +185,33 @@
           AND p.status = 'ACTIVE'
     </select>
 
+    <select id="findPostCells" resultType="com.ssafy.ssafy_slap.community.domain.CommunityPostCell">
+        SELECT
+            post_cell_id AS postCellId,
+            post_id AS postId,
+            sort_order AS sortOrder,
+            cell_type AS cellType,
+            text_content AS textContent,
+            image_url AS imageUrl
+        FROM COMMUNITY_POST_CELL
+        WHERE post_id = #{postId}
+        ORDER BY sort_order ASC, post_cell_id ASC
+    </select>
+
     <select id="findPostImageUrl" resultType="string">
         SELECT image_url
         FROM COMMUNITY_POST
         WHERE post_id = #{postId}
           AND user_id = #{userId}
           AND status = 'ACTIVE'
+    </select>
+
+    <select id="findPostCellImageUrls" resultType="string">
+        SELECT image_url
+        FROM COMMUNITY_POST_CELL
+        WHERE post_id = #{postId}
+          AND cell_type = 'IMAGE'
+          AND image_url IS NOT NULL
     </select>
 
     <update id="incrementViewCount">
@@ -192,6 +233,11 @@
           AND user_id = #{userId}
           AND status = 'ACTIVE'
     </update>
+
+    <delete id="deletePostCells">
+        DELETE FROM COMMUNITY_POST_CELL
+        WHERE post_id = #{postId}
+    </delete>
 
     <update id="deletePost">
         UPDATE COMMUNITY_POST

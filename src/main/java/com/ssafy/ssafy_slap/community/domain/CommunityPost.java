@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.community.domain;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class CommunityPost {
 
@@ -21,6 +22,7 @@ public class CommunityPost {
     private LocalDateTime updatedAt;
     private Boolean likedByMe;
     private Boolean mine;
+    private List<CommunityPostCell> cells;
 
     public CommunityPost() {
     }
@@ -97,4 +99,6 @@ public class CommunityPost {
     public void setLikedByMe(Boolean likedByMe) { this.likedByMe = likedByMe; }
     public Boolean getMine() { return mine; }
     public void setMine(Boolean mine) { this.mine = mine; }
+    public List<CommunityPostCell> getCells() { return cells; }
+    public void setCells(List<CommunityPostCell> cells) { this.cells = cells; }
 }

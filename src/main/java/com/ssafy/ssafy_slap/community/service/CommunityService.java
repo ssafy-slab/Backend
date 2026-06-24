@@ -1,9 +1,11 @@
 package com.ssafy.ssafy_slap.community.service;
 
 import com.ssafy.ssafy_slap.community.domain.CommunityPost;
+import com.ssafy.ssafy_slap.community.domain.CommunityPostCell;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentUpdateRequest;
+import com.ssafy.ssafy_slap.community.dto.CommunityPostCellRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostDetailResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityPostSummaryResponse;
@@ -15,12 +17,16 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 @Service
 @Transactional(readOnly = true)
 public class CommunityService {
 
     private static final Set<String> SORTS = Set.of("latest", "popular", "comments");
+    private static final String CELL_TYPE_TEXT = "TEXT";
+    private static final String CELL_TYPE_IMAGE = "IMAGE";
+    private static final int MAX_POST_CELLS = 5;
 
     private final CommunityMapper communityMapper;
     private final CommunityImageStorageService imageStorageService;
@@ -58,6 +64,7 @@ public class CommunityService {
         if (post == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found");
         }
+        post.setCells(resolvePostCells(post));
         communityMapper.incrementViewCount(postId);
         post.setViewCount((post.getViewCount() == null ? 0 : post.getViewCount()) + 1);
         return CommunityPostDetailResponse.from(post);
@@ -68,15 +75,19 @@ public class CommunityService {
         validateUser(userId);
         validatePostRequest(request);
         validatePlace(request.placeId());
+        List<CommunityPostCell> cells = normalizeCells(request);
 
         CommunityPost post = new CommunityPost();
         post.setUserId(userId);
         post.setPlaceId(request.placeId());
         post.setCategory(request.normalizedCategory());
         post.setTitle(request.normalizedTitle());
-        post.setContent(request.normalizedContent());
-        post.setImageUrl(request.normalizedImageUrl());
+        post.setContent(firstTextContent(cells, request.normalizedContent()));
+        post.setImageUrl(firstImageUrl(cells, request.normalizedImageUrl()));
         communityMapper.insertPost(post);
+        if (!cells.isEmpty()) {
+            communityMapper.insertPostCells(post.getPostId(), cells);
+        }
         return findPost(post.getPostId(), userId);
     }
 
@@ -86,18 +97,23 @@ public class CommunityService {
         validateUser(userId);
         validatePostRequest(request);
         validatePlace(request.placeId());
+        List<CommunityPostCell> cells = normalizeCells(request);
 
         CommunityPost post = new CommunityPost();
         post.setPostId(postId);
         post.setPlaceId(request.placeId());
         post.setCategory(request.normalizedCategory());
         post.setTitle(request.normalizedTitle());
-        post.setContent(request.normalizedContent());
-        post.setImageUrl(request.normalizedImageUrl());
+        post.setContent(firstTextContent(cells, request.normalizedContent()));
+        post.setImageUrl(firstImageUrl(cells, request.normalizedImageUrl()));
 
         int updated = communityMapper.updatePost(post, userId);
         if (updated == 0) {
             throwMissingOrForbidden(postId, userId);
+        }
+        communityMapper.deletePostCells(postId);
+        if (!cells.isEmpty()) {
+            communityMapper.insertPostCells(postId, cells);
         }
         return findPost(postId, userId);
     }
@@ -107,11 +123,15 @@ public class CommunityService {
         validatePostId(postId);
         validateUser(userId);
         String imageUrl = communityMapper.findPostImageUrl(postId, userId);
+        List<String> cellImageUrls = communityMapper.findPostCellImageUrls(postId);
         int deleted = communityMapper.deletePost(postId, userId);
         if (deleted == 0) {
             throwMissingOrForbidden(postId, userId);
         }
         imageStorageService.deleteIfOwnedS3Image(imageUrl);
+        if (cellImageUrls != null) {
+            cellImageUrls.forEach(imageStorageService::deleteIfOwnedS3Image);
+        }
     }
 
     @Transactional
@@ -192,6 +212,83 @@ public class CommunityService {
         if (request.normalizedCategory() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "category is required");
         }
+    }
+
+    private List<CommunityPostCell> normalizeCells(CommunityPostRequest request) {
+        if (request.cells() == null || request.cells().isEmpty()) {
+            return legacyCells(request);
+        }
+        if (request.cells().size() > MAX_POST_CELLS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cells must be 5 or fewer");
+        }
+        return IntStream.range(0, request.cells().size())
+                .mapToObj((index) -> toCell(request.cells().get(index), index + 1))
+                .toList();
+    }
+
+    private CommunityPostCell toCell(CommunityPostCellRequest request, int sortOrder) {
+        if (request == null || request.normalizedCellType() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cellType is required");
+        }
+        String cellType = request.normalizedCellType().toUpperCase();
+        if (CELL_TYPE_TEXT.equals(cellType)) {
+            if (request.normalizedTextContent() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "textContent is required");
+            }
+            return new CommunityPostCell(null, null, sortOrder, cellType, request.normalizedTextContent(), null);
+        }
+        if (CELL_TYPE_IMAGE.equals(cellType)) {
+            if (request.normalizedImageUrl() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "imageUrl is required");
+            }
+            return new CommunityPostCell(null, null, sortOrder, cellType, null, request.normalizedImageUrl());
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cellType must be TEXT or IMAGE");
+    }
+
+    private List<CommunityPostCell> legacyCells(CommunityPostRequest request) {
+        java.util.ArrayList<CommunityPostCell> cells = new java.util.ArrayList<>();
+        int sortOrder = 1;
+        if (request.normalizedContent() != null) {
+            cells.add(new CommunityPostCell(null, null, sortOrder++, CELL_TYPE_TEXT, request.normalizedContent(), null));
+        }
+        if (request.normalizedImageUrl() != null) {
+            cells.add(new CommunityPostCell(null, null, sortOrder, CELL_TYPE_IMAGE, null, request.normalizedImageUrl()));
+        }
+        return cells;
+    }
+
+    private String firstTextContent(List<CommunityPostCell> cells, String fallback) {
+        return cells.stream()
+                .filter((cell) -> CELL_TYPE_TEXT.equals(cell.getCellType()))
+                .map(CommunityPostCell::getTextContent)
+                .findFirst()
+                .orElse(fallback);
+    }
+
+    private String firstImageUrl(List<CommunityPostCell> cells, String fallback) {
+        return cells.stream()
+                .filter((cell) -> CELL_TYPE_IMAGE.equals(cell.getCellType()))
+                .map(CommunityPostCell::getImageUrl)
+                .findFirst()
+                .orElse(fallback);
+    }
+
+    private List<CommunityPostCell> resolvePostCells(CommunityPost post) {
+        List<CommunityPostCell> cells = communityMapper.findPostCells(post.getPostId());
+        if (cells != null && !cells.isEmpty()) {
+            return cells;
+        }
+
+        java.util.ArrayList<CommunityPostCell> fallback = new java.util.ArrayList<>();
+        int sortOrder = 1;
+        if (post.getContent() != null && !post.getContent().isBlank()) {
+            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder++, CELL_TYPE_TEXT, post.getContent(), null));
+        }
+        if (post.getImageUrl() != null && !post.getImageUrl().isBlank()) {
+            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder, CELL_TYPE_IMAGE, null, post.getImageUrl()));
+        }
+        return fallback;
     }
 
     private void validatePlace(Long placeId) {

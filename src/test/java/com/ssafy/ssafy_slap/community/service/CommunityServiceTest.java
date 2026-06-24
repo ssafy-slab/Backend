@@ -1,6 +1,8 @@
 package com.ssafy.ssafy_slap.community.service;
 
 import com.ssafy.ssafy_slap.community.domain.CommunityPost;
+import com.ssafy.ssafy_slap.community.domain.CommunityPostCell;
+import com.ssafy.ssafy_slap.community.dto.CommunityPostCellRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentRequest;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentResponse;
 import com.ssafy.ssafy_slap.community.dto.CommunityCommentUpdateRequest;
@@ -56,6 +58,101 @@ class CommunityServiceTest {
     }
 
     @Test
+    void createsCellsFromLegacyContentAndImageWhenCellsAreMissing() {
+        var saved = detail(1L, "Good beach", 0L, 0L, false);
+        when(communityMapper.existsPlace(3L)).thenReturn(true);
+        when(communityMapper.findPostById(1L, 7L)).thenReturn(saved);
+        doAnswer(invocation -> {
+            CommunityPost post = invocation.getArgument(0);
+            post.setPostId(1L);
+            return null;
+        }).when(communityMapper).insertPost(org.mockito.ArgumentMatchers.any(CommunityPost.class));
+
+        communityService.createPost(7L, new CommunityPostRequest(
+                "PLACE_REVIEW",
+                "Good beach",
+                "  Visit before sunset.  ",
+                "  https://example.com/a.jpg  ",
+                3L
+        ));
+
+        verify(communityMapper).insertPostCells(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.argThat(cells ->
+                cells.size() == 2
+                        && cells.get(0).getSortOrder() == 1
+                        && cells.get(0).getCellType().equals("TEXT")
+                        && cells.get(0).getTextContent().equals("Visit before sunset.")
+                        && cells.get(1).getSortOrder() == 2
+                        && cells.get(1).getCellType().equals("IMAGE")
+                        && cells.get(1).getImageUrl().equals("https://example.com/a.jpg")
+        ));
+    }
+
+    @Test
+    void createsPostWithOrderedCells() {
+        var saved = detail(1L, "Good beach", 0L, 0L, false);
+        when(communityMapper.findPostById(1L, 7L)).thenReturn(saved);
+        doAnswer(invocation -> {
+            CommunityPost post = invocation.getArgument(0);
+            post.setPostId(1L);
+            return null;
+        }).when(communityMapper).insertPost(org.mockito.ArgumentMatchers.any(CommunityPost.class));
+
+        communityService.createPost(7L, new CommunityPostRequest(
+                "PLACE_REVIEW",
+                "Good beach",
+                null,
+                null,
+                null,
+                List.of(
+                        new CommunityPostCellRequest("TEXT", "  First story  ", null),
+                        new CommunityPostCellRequest("IMAGE", null, "  https://example.com/a.jpg  "),
+                        new CommunityPostCellRequest("TEXT", "Second story", null)
+                )
+        ));
+
+        verify(communityMapper).insertPost(org.mockito.ArgumentMatchers.argThat(post ->
+                post.getContent().equals("First story")
+                        && post.getImageUrl().equals("https://example.com/a.jpg")
+        ));
+        verify(communityMapper).insertPostCells(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.argThat(cells ->
+                cells.size() == 3
+                        && cells.get(0).getSortOrder() == 1
+                        && cells.get(0).getCellType().equals("TEXT")
+                        && cells.get(0).getTextContent().equals("First story")
+                        && cells.get(1).getSortOrder() == 2
+                        && cells.get(1).getCellType().equals("IMAGE")
+                        && cells.get(1).getImageUrl().equals("https://example.com/a.jpg")
+                        && cells.get(2).getSortOrder() == 3
+                        && cells.get(2).getTextContent().equals("Second story")
+        ));
+    }
+
+    @Test
+    void rejectsPostWithMoreThanFiveCells() {
+        var cells = List.of(
+                new CommunityPostCellRequest("TEXT", "one", null),
+                new CommunityPostCellRequest("TEXT", "two", null),
+                new CommunityPostCellRequest("TEXT", "three", null),
+                new CommunityPostCellRequest("TEXT", "four", null),
+                new CommunityPostCellRequest("TEXT", "five", null),
+                new CommunityPostCellRequest("TEXT", "six", null)
+        );
+
+        assertThatThrownBy(() -> communityService.createPost(7L, new CommunityPostRequest(
+                "PLACE_REVIEW",
+                "Good beach",
+                null,
+                null,
+                null,
+                cells
+        )))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        verifyNoInteractions(imageStorageService);
+    }
+
+    @Test
     void listsActivePostsWithSafePaging() {
         var post = summary(1L, "Good beach", 2L, 1L, false);
         when(communityMapper.findPosts(null, "beach", "popular", 50, 0, 7L)).thenReturn(List.of(post));
@@ -74,6 +171,27 @@ class CommunityServiceTest {
 
         verify(communityMapper).incrementViewCount(1L);
         assertThat(result.postId()).isEqualTo(1L);
+    }
+
+    @Test
+    void returnsDetailWithPersistedCellsInOrder() {
+        var post = detail(1L, "Good beach", 2L, 1L, false);
+        when(communityMapper.findPostById(1L, 7L)).thenReturn(post);
+        when(communityMapper.findPostCells(1L)).thenReturn(List.of(
+                new CommunityPostCell(10L, 1L, 1, "TEXT", "First story", null),
+                new CommunityPostCell(11L, 1L, 2, "IMAGE", null, "https://example.com/a.jpg"),
+                new CommunityPostCell(12L, 1L, 3, "TEXT", "Second story", null),
+                new CommunityPostCell(13L, 1L, 4, "IMAGE", null, "https://example.com/b.jpg")
+        ));
+
+        var result = communityService.findPost(1L, 7L);
+
+        assertThat(result.cells()).extracting("cellType")
+                .containsExactly("TEXT", "IMAGE", "TEXT", "IMAGE");
+        assertThat(result.cells()).extracting("textContent")
+                .containsExactly("First story", null, "Second story", null);
+        assertThat(result.cells()).extracting("imageUrl")
+                .containsExactly(null, "https://example.com/a.jpg", null, "https://example.com/b.jpg");
     }
 
     @Test
@@ -165,12 +283,18 @@ class CommunityServiceTest {
     void deletesPostAndAttemptsS3ImageDeletionAfterDbDelete() {
         String imageUrl = "https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/a.jpg";
         when(communityMapper.findPostImageUrl(1L, 7L)).thenReturn(imageUrl);
+        when(communityMapper.findPostCellImageUrls(1L)).thenReturn(List.of(
+                "https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/b.jpg",
+                "https://example.com/external.jpg"
+        ));
         when(communityMapper.deletePost(1L, 7L)).thenReturn(1);
 
         communityService.deletePost(1L, 7L);
 
         verify(communityMapper).deletePost(1L, 7L);
         verify(imageStorageService).deleteIfOwnedS3Image(imageUrl);
+        verify(imageStorageService).deleteIfOwnedS3Image("https://ssafyslapbucket.s3.ap-northeast-2.amazonaws.com/community/b.jpg");
+        verify(imageStorageService).deleteIfOwnedS3Image("https://example.com/external.jpg");
     }
 
     @Test
