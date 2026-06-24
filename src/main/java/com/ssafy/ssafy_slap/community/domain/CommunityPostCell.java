@@ -9,6 +9,8 @@ public class CommunityPostCell {
     private String textContent;
     private String imageUrl;
     private String alignment;
+    private Integer fontSizePx;
+    private Boolean bold;
 
     public CommunityPostCell() {
     }
@@ -18,6 +20,10 @@ public class CommunityPostCell {
     }
 
     public CommunityPostCell(Long postCellId, Long postId, int sortOrder, String cellType, String textContent, String imageUrl, String alignment) {
+        this(postCellId, postId, sortOrder, cellType, textContent, imageUrl, alignment, null, null);
+    }
+
+    public CommunityPostCell(Long postCellId, Long postId, int sortOrder, String cellType, String textContent, String imageUrl, String alignment, Integer fontSizePx, Boolean bold) {
         this.postCellId = postCellId;
         this.postId = postId;
         this.sortOrder = sortOrder;
@@ -25,6 +31,8 @@ public class CommunityPostCell {
         this.textContent = textContent;
         this.imageUrl = imageUrl;
         this.alignment = alignment;
+        this.fontSizePx = fontSizePx;
+        this.bold = bold;
     }
 
     public Long getPostCellId() { return postCellId; }
@@ -41,4 +49,8 @@ public class CommunityPostCell {
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getAlignment() { return alignment; }
     public void setAlignment(String alignment) { this.alignment = alignment; }
+    public Integer getFontSizePx() { return fontSizePx; }
+    public void setFontSizePx(Integer fontSizePx) { this.fontSizePx = fontSizePx; }
+    public Boolean getBold() { return bold; }
+    public void setBold(Boolean bold) { this.bold = bold; }
 }

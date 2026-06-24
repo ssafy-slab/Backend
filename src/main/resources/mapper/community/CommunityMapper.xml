@@ -92,7 +92,9 @@
             cell_type,
             text_content,
             image_url,
-            alignment
+            alignment,
+            font_size_px,
+            bold
         )
         VALUES
         <foreach collection="cells" item="cell" separator=",">
@@ -102,7 +104,9 @@
                 #{cell.cellType},
                 #{cell.textContent},
                 #{cell.imageUrl},
-                #{cell.alignment}
+                #{cell.alignment},
+                #{cell.fontSizePx},
+                #{cell.bold}
             )
         </foreach>
     </insert>
@@ -195,7 +199,9 @@
             cell_type AS cellType,
             text_content AS textContent,
             image_url AS imageUrl,
-            alignment AS alignment
+            alignment AS alignment,
+            font_size_px AS fontSizePx,
+            bold AS bold
         FROM COMMUNITY_POST_CELL
         WHERE post_id = #{postId}
         ORDER BY sort_order ASC, post_cell_id ASC

@@ -6,10 +6,16 @@ public record CommunityPostCellRequest(
         String cellType,
         @Size(max = 5000) String textContent,
         @Size(max = 1000) String imageUrl,
-        String alignment
+        String alignment,
+        Integer fontSizePx,
+        Boolean bold
 ) {
     public CommunityPostCellRequest(String cellType, String textContent, String imageUrl) {
-        this(cellType, textContent, imageUrl, null);
+        this(cellType, textContent, imageUrl, null, null, null);
+    }
+
+    public CommunityPostCellRequest(String cellType, String textContent, String imageUrl, String alignment) {
+        this(cellType, textContent, imageUrl, alignment, null, null);
     }
 
     public String normalizedCellType() {

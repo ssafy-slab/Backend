@@ -8,7 +8,9 @@ public record CommunityPostCellResponse(
         String cellType,
         String textContent,
         String imageUrl,
-        String alignment
+        String alignment,
+        Integer fontSizePx,
+        Boolean bold
 ) {
     public static CommunityPostCellResponse from(CommunityPostCell cell) {
         return new CommunityPostCellResponse(
@@ -17,7 +19,20 @@ public record CommunityPostCellResponse(
                 cell.getCellType(),
                 cell.getTextContent(),
                 cell.getImageUrl(),
-                cell.getAlignment()
+                cell.getAlignment(),
+                normalizedFontSizePx(cell),
+                normalizedBold(cell)
         );
+    }
+
+    private static Integer normalizedFontSizePx(CommunityPostCell cell) {
+        if (cell.getFontSizePx() != null) {
+            return cell.getFontSizePx();
+        }
+        return "IMAGE".equals(cell.getCellType()) ? 0 : 14;
+    }
+
+    private static Boolean normalizedBold(CommunityPostCell cell) {
+        return cell.getBold() != null ? cell.getBold() : false;
     }
 }

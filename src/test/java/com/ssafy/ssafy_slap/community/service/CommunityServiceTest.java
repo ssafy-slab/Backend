@@ -123,10 +123,40 @@ class CommunityServiceTest {
                         && cells.get(1).getSortOrder() == 2
                         && cells.get(1).getCellType().equals("IMAGE")
                         && cells.get(1).getImageUrl().equals("https://example.com/a.jpg")
+                        && cells.get(1).getFontSizePx().equals(0)
+                        && cells.get(1).getBold().equals(false)
                         && cells.get(1).getAlignment().equals("RIGHT")
                         && cells.get(2).getSortOrder() == 3
                         && cells.get(2).getTextContent().equals("Second story")
                         && cells.get(2).getAlignment().equals("LEFT")
+        ));
+    }
+
+    @Test
+    void createsPostWithTextCellTypography() {
+        var saved = detail(1L, "Good beach", 0L, 0L, false);
+        when(communityMapper.findPostById(1L, 7L)).thenReturn(saved);
+        doAnswer(invocation -> {
+            CommunityPost post = invocation.getArgument(0);
+            post.setPostId(1L);
+            return null;
+        }).when(communityMapper).insertPost(org.mockito.ArgumentMatchers.any(CommunityPost.class));
+
+        communityService.createPost(7L, new CommunityPostRequest(
+                "PLACE_REVIEW",
+                "Good beach",
+                null,
+                null,
+                null,
+                List.of(new CommunityPostCellRequest("TEXT", "  Big story  ", null, "CENTER", 32, true))
+        ));
+
+        verify(communityMapper).insertPostCells(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.argThat(cells ->
+                cells.size() == 1
+                        && cells.get(0).getTextContent().equals("Big story")
+                        && cells.get(0).getAlignment().equals("CENTER")
+                        && cells.get(0).getFontSizePx().equals(32)
+                        && cells.get(0).getBold().equals(true)
         ));
     }
 
@@ -181,7 +211,7 @@ class CommunityServiceTest {
         var post = detail(1L, "Good beach", 2L, 1L, false);
         when(communityMapper.findPostById(1L, 7L)).thenReturn(post);
         when(communityMapper.findPostCells(1L)).thenReturn(List.of(
-                new CommunityPostCell(10L, 1L, 1, "TEXT", "First story", null, "CENTER"),
+                new CommunityPostCell(10L, 1L, 1, "TEXT", "First story", null, "CENTER", 28, true),
                 new CommunityPostCell(11L, 1L, 2, "IMAGE", null, "https://example.com/a.jpg", "RIGHT"),
                 new CommunityPostCell(12L, 1L, 3, "TEXT", "Second story", null, "LEFT"),
                 new CommunityPostCell(13L, 1L, 4, "IMAGE", null, "https://example.com/b.jpg", "CENTER")
@@ -197,6 +227,10 @@ class CommunityServiceTest {
                 .containsExactly(null, "https://example.com/a.jpg", null, "https://example.com/b.jpg");
         assertThat(result.cells()).extracting("alignment")
                 .containsExactly("CENTER", "RIGHT", "LEFT", "CENTER");
+        assertThat(result.cells()).extracting("fontSizePx")
+                .containsExactly(28, 0, 14, 0);
+        assertThat(result.cells()).extracting("bold")
+                .containsExactly(true, false, false, false);
     }
 
     @Test

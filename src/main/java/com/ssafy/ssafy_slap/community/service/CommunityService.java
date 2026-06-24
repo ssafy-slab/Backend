@@ -28,6 +28,9 @@ public class CommunityService {
     private static final String CELL_TYPE_IMAGE = "IMAGE";
     private static final String DEFAULT_ALIGNMENT = "LEFT";
     private static final Set<String> CELL_ALIGNMENTS = Set.of("LEFT", "CENTER", "RIGHT");
+    private static final int DEFAULT_FONT_SIZE_PX = 14;
+    private static final int IMAGE_FONT_SIZE_PX = 0;
+    private static final Set<Integer> CELL_FONT_SIZE_PX = Set.of(14, 16, 18, 20, 24, 28, 32);
     private static final int MAX_POST_CELLS = 5;
 
     private final CommunityMapper communityMapper;
@@ -238,13 +241,23 @@ public class CommunityService {
             if (request.normalizedTextContent() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "textContent is required");
             }
-            return new CommunityPostCell(null, null, sortOrder, cellType, request.normalizedTextContent(), null, alignment);
+            return new CommunityPostCell(
+                    null,
+                    null,
+                    sortOrder,
+                    cellType,
+                    request.normalizedTextContent(),
+                    null,
+                    alignment,
+                    normalizeFontSizePx(request.fontSizePx()),
+                    Boolean.TRUE.equals(request.bold())
+            );
         }
         if (CELL_TYPE_IMAGE.equals(cellType)) {
             if (request.normalizedImageUrl() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "imageUrl is required");
             }
-            return new CommunityPostCell(null, null, sortOrder, cellType, null, request.normalizedImageUrl(), alignment);
+            return new CommunityPostCell(null, null, sortOrder, cellType, null, request.normalizedImageUrl(), alignment, IMAGE_FONT_SIZE_PX, false);
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cellType must be TEXT or IMAGE");
     }
@@ -253,10 +266,10 @@ public class CommunityService {
         java.util.ArrayList<CommunityPostCell> cells = new java.util.ArrayList<>();
         int sortOrder = 1;
         if (request.normalizedContent() != null) {
-            cells.add(new CommunityPostCell(null, null, sortOrder++, CELL_TYPE_TEXT, request.normalizedContent(), null, DEFAULT_ALIGNMENT));
+            cells.add(new CommunityPostCell(null, null, sortOrder++, CELL_TYPE_TEXT, request.normalizedContent(), null, DEFAULT_ALIGNMENT, DEFAULT_FONT_SIZE_PX, false));
         }
         if (request.normalizedImageUrl() != null) {
-            cells.add(new CommunityPostCell(null, null, sortOrder, CELL_TYPE_IMAGE, null, request.normalizedImageUrl(), DEFAULT_ALIGNMENT));
+            cells.add(new CommunityPostCell(null, null, sortOrder, CELL_TYPE_IMAGE, null, request.normalizedImageUrl(), DEFAULT_ALIGNMENT, IMAGE_FONT_SIZE_PX, false));
         }
         return cells;
     }
@@ -286,7 +299,7 @@ public class CommunityService {
         java.util.ArrayList<CommunityPostCell> fallback = new java.util.ArrayList<>();
         int sortOrder = 1;
         if (post.getContent() != null && !post.getContent().isBlank()) {
-            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder++, CELL_TYPE_TEXT, post.getContent(), null, DEFAULT_ALIGNMENT));
+            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder++, CELL_TYPE_TEXT, post.getContent(), null, DEFAULT_ALIGNMENT, DEFAULT_FONT_SIZE_PX, false));
         }
         if (post.getImageUrl() != null && !post.getImageUrl().isBlank()) {
             fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder, CELL_TYPE_IMAGE, null, post.getImageUrl(), DEFAULT_ALIGNMENT));
@@ -298,6 +311,14 @@ public class CommunityService {
         String normalized = alignment == null ? DEFAULT_ALIGNMENT : alignment.toUpperCase();
         if (!CELL_ALIGNMENTS.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "alignment must be LEFT, CENTER, or RIGHT");
+        }
+        return normalized;
+    }
+
+    private Integer normalizeFontSizePx(Integer fontSizePx) {
+        int normalized = fontSizePx == null ? DEFAULT_FONT_SIZE_PX : fontSizePx;
+        if (!CELL_FONT_SIZE_PX.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fontSizePx must be 14, 16, 18, 20, 24, 28, or 32");
         }
         return normalized;
     }
