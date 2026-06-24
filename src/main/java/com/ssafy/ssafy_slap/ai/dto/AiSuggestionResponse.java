@@ -22,6 +22,7 @@ public record AiSuggestionResponse(
         Integer sortOrder,
         String status,
         Long appliedScheduleItemId,
+        Long voteId,
         LocalDateTime createdAt,
         LocalDateTime appliedAt
 ) {
@@ -33,7 +34,8 @@ public record AiSuggestionResponse(
                 suggestion.getSummary(), suggestion.getReason(), suggestion.getScheduleDate(),
                 suggestion.getStartTime(), suggestion.getEndTime(), suggestion.getDayNo(),
                 suggestion.getSortOrder(), suggestion.getStatus(),
-                suggestion.getAppliedScheduleItemId(), suggestion.getCreatedAt(), suggestion.getAppliedAt()
+                suggestion.getAppliedScheduleItemId(), suggestion.getVoteId(),
+                suggestion.getCreatedAt(), suggestion.getAppliedAt()
         );
     }
 }

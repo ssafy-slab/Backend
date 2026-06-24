@@ -28,12 +28,19 @@ public class GmsAiScheduleClient implements AiScheduleClient {
 
     private static final String SYSTEM_PROMPT = """
             You generate an editable travel schedule draft from a trip chat.
-            Return only one JSON object with fields summary, warnings, and schedules.
+            Return only one JSON object with fields:
+            resultStatus, reasonCode, message, summary, warnings, and schedules.
             Keep the JSON field names exactly as specified in English so clients can parse them.
             All user-visible text values must be written in Korean:
             summary, each warnings entry, placeName, regionHint, title, and memo.
             Do not use English action phrases such as "Visit" or "Spend 2 hours at".
             Preserve a foreign proper noun only when no commonly used Korean name exists.
+            If schedule suggestions can be created, set resultStatus to "SUCCESS",
+            set reasonCode and message to null, and return one or more schedules.
+            If the chat has too little information or no schedule-related decisions,
+            set resultStatus to "NO_RESULT", set reasonCode to "INSUFFICIENT_MESSAGES"
+            or "NO_SCHEDULE_CONTEXT", write a clear Korean message for the user,
+            and return an empty schedules array. Do not invent suggestions just to avoid NO_RESULT.
             warnings must always be a JSON array of strings. Use [] when there are no warnings.
             Each schedules item must contain:
             placeName, regionHint, scheduleDate, startTime, endTime, title, memo, dayNo, sortOrder.

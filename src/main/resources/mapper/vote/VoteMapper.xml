@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.ssafy_slap.vote.mapper.VoteMapper">
+
+    <sql id="voteColumns">
+        vote_id AS voteId,
+        trip_id AS tripId,
+        creator_user_id AS creatorUserId,
+        title,
+        status,
+        started_at AS startedAt,
+        ended_at AS endedAt
+    </sql>
+
+    <select id="existsAccessibleTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <select id="existsEditableTrip" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM TRIP t
+            LEFT JOIN TRIP_MEMBER tm
+              ON tm.trip_id = t.trip_id
+             AND tm.user_id = #{userId}
+             AND tm.invite_status = 'ACCEPTED'
+             AND tm.member_role = 'EDITOR'
+            WHERE t.trip_id = #{tripId}
+              AND (t.owner_user_id = #{userId} OR tm.trip_member_id IS NOT NULL)
+        )
+    </select>
+
+    <insert id="insertVote" useGeneratedKeys="true" keyProperty="vote.voteId">
+        INSERT INTO VOTE (trip_id, creator_user_id, title, status, started_at)
+        VALUES (#{vote.tripId}, #{vote.creatorUserId}, #{vote.title}, 'OPEN', CURRENT_TIMESTAMP)
+    </insert>
+
+    <insert id="insertOption" useGeneratedKeys="true" keyProperty="option.voteOptionId">
+        INSERT INTO VOTE_OPTION (vote_id, place_id, option_title, description, sort_order)
+        VALUES (#{option.voteId}, #{option.placeId}, #{option.optionTitle},
+                #{option.description}, #{option.sortOrder})
+    </insert>
+
+    <select id="findVote" resultType="com.ssafy.ssafy_slap.vote.domain.Vote">
+        SELECT <include refid="voteColumns"/>
+        FROM VOTE
+        WHERE trip_id = #{tripId}
+          AND vote_id = #{voteId}
+    </select>
+
+    <select id="findVotesByTripId" resultType="com.ssafy.ssafy_slap.vote.domain.Vote">
+        SELECT <include refid="voteColumns"/>
+        FROM VOTE
+        WHERE trip_id = #{tripId}
+        ORDER BY CASE status WHEN 'OPEN' THEN 0 ELSE 1 END,
+                 started_at DESC, vote_id DESC
+    </select>
+
+    <select id="findOptionsWithCounts" resultType="com.ssafy.ssafy_slap.vote.domain.VoteOption">
+        SELECT vo.vote_option_id AS voteOptionId,
+               vo.vote_id AS voteId,
+               vo.place_id AS placeId,
+               vo.option_title AS optionTitle,
+               vo.description,
+               vo.sort_order AS sortOrder,
+               COUNT(vb.vote_ballot_id) AS voteCount
+        FROM VOTE_OPTION vo
+        LEFT JOIN VOTE_BALLOT vb ON vb.vote_option_id = vo.vote_option_id
+        WHERE vo.vote_id = #{voteId}
+        GROUP BY vo.vote_option_id, vo.vote_id, vo.place_id, vo.option_title,
+                 vo.description, vo.sort_order
+        ORDER BY vo.sort_order ASC, vo.vote_option_id ASC
+    </select>
+
+    <select id="findSelectedOptionId" resultType="long">
+        SELECT vote_option_id
+        FROM VOTE_BALLOT
+        WHERE vote_id = #{voteId}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="existsOption" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM VOTE_OPTION
+            WHERE vote_id = #{voteId}
+              AND vote_option_id = #{voteOptionId}
+        )
+    </select>
+
+    <insert id="upsertBallot">
+        INSERT INTO VOTE_BALLOT (vote_id, vote_option_id, user_id, voted_at)
+        VALUES (#{voteId}, #{voteOptionId}, #{userId}, CURRENT_TIMESTAMP)
+        ON DUPLICATE KEY UPDATE
+            vote_option_id = VALUES(vote_option_id),
+            voted_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="closeVote">
+        UPDATE VOTE
+        SET status = 'CLOSED',
+            ended_at = CURRENT_TIMESTAMP
+        WHERE trip_id = #{tripId}
+          AND vote_id = #{voteId}
+          AND status = 'OPEN'
+    </update>
+</mapper>

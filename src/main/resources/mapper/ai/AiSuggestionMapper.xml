@@ -18,6 +18,7 @@
         s.sort_order AS sortOrder,
         s.status,
         s.applied_schedule_item_id AS appliedScheduleItemId,
+        sv.vote_id AS voteId,
         s.created_at AS createdAt,
         s.applied_at AS appliedAt
     </sql>
@@ -26,6 +27,7 @@
         SELECT <include refid="columns"/>
         FROM AI_SUGGESTION s
         JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        LEFT JOIN AI_SUGGESTION_VOTE sv ON sv.ai_suggestion_id = s.ai_suggestion_id
         WHERE r.trip_id = #{tripId}
         <if test="status != null and status != ''">
             AND s.status = #{status}
@@ -37,6 +39,7 @@
         SELECT <include refid="columns"/>
         FROM AI_SUGGESTION s
         JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        LEFT JOIN AI_SUGGESTION_VOTE sv ON sv.ai_suggestion_id = s.ai_suggestion_id
         WHERE r.trip_id = #{tripId}
           AND s.ai_suggestion_id = #{suggestionId}
         FOR UPDATE
@@ -46,6 +49,7 @@
         SELECT <include refid="columns"/>
         FROM AI_SUGGESTION s
         JOIN AI_ANALYSIS_RUN r ON r.analysis_run_id = s.analysis_run_id
+        LEFT JOIN AI_SUGGESTION_VOTE sv ON sv.ai_suggestion_id = s.ai_suggestion_id
         WHERE r.trip_id = #{tripId}
           AND r.analysis_run_id = #{runId}
           AND s.status = 'PENDING'
@@ -67,5 +71,77 @@
         SET status = 'REJECTED'
         WHERE ai_suggestion_id = #{suggestionId}
           AND status = 'PENDING'
+    </update>
+
+    <select id="findTripType" resultType="string">
+        SELECT trip_type
+        FROM TRIP
+        WHERE trip_id = #{tripId}
+    </select>
+
+    <select id="findSuggestionVote" resultType="com.ssafy.ssafy_slap.ai.domain.AiSuggestionVote">
+        SELECT ai_suggestion_vote_id AS aiSuggestionVoteId,
+               ai_suggestion_id AS aiSuggestionId,
+               vote_id AS voteId,
+               approve_option_id AS approveOptionId,
+               reject_option_id AS rejectOptionId,
+               resolution,
+               resolved_at AS resolvedAt
+        FROM AI_SUGGESTION_VOTE
+        WHERE ai_suggestion_id = #{suggestionId}
+    </select>
+
+    <select id="findSuggestionVoteByVoteIdForUpdate"
+            resultType="com.ssafy.ssafy_slap.ai.domain.AiSuggestionVote">
+        SELECT ai_suggestion_vote_id AS aiSuggestionVoteId,
+               ai_suggestion_id AS aiSuggestionId,
+               vote_id AS voteId,
+               approve_option_id AS approveOptionId,
+               reject_option_id AS rejectOptionId,
+               resolution,
+               resolved_at AS resolvedAt
+        FROM AI_SUGGESTION_VOTE
+        WHERE vote_id = #{voteId}
+        FOR UPDATE
+    </select>
+
+    <insert id="insertSuggestionVote">
+        INSERT INTO AI_SUGGESTION_VOTE (
+            ai_suggestion_id, vote_id, approve_option_id, reject_option_id
+        )
+        VALUES (
+            #{suggestionId}, #{voteId}, #{approveOptionId}, #{rejectOptionId}
+        )
+    </insert>
+
+    <update id="markVoting">
+        UPDATE AI_SUGGESTION
+        SET status = 'VOTING'
+        WHERE ai_suggestion_id = #{suggestionId}
+          AND status = 'PENDING'
+    </update>
+
+    <update id="markAppliedFromVoting">
+        UPDATE AI_SUGGESTION
+        SET status = 'APPLIED',
+            applied_schedule_item_id = #{scheduleItemId},
+            applied_at = CURRENT_TIMESTAMP
+        WHERE ai_suggestion_id = #{suggestionId}
+          AND status = 'VOTING'
+    </update>
+
+    <update id="markRejectedFromVoting">
+        UPDATE AI_SUGGESTION
+        SET status = 'REJECTED'
+        WHERE ai_suggestion_id = #{suggestionId}
+          AND status = 'VOTING'
+    </update>
+
+    <update id="markSuggestionVoteResolved">
+        UPDATE AI_SUGGESTION_VOTE
+        SET resolution = #{resolution},
+            resolved_at = CURRENT_TIMESTAMP
+        WHERE vote_id = #{voteId}
+          AND resolution IS NULL
     </update>
 </mapper>

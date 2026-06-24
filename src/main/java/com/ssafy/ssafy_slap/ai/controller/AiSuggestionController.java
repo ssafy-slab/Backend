@@ -2,7 +2,10 @@ package com.ssafy.ssafy_slap.ai.controller;
 
 import com.ssafy.ssafy_slap.ai.dto.AiSuggestionResponse;
 import com.ssafy.ssafy_slap.ai.service.AiSuggestionService;
+import com.ssafy.ssafy_slap.ai.service.AiSuggestionVoteService;
 import com.ssafy.ssafy_slap.auth.service.AuthenticatedUser;
+import com.ssafy.ssafy_slap.vote.dto.VoteResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,9 +23,16 @@ import java.util.List;
 @RequestMapping("/api/trips/{tripId}/ai")
 public class AiSuggestionController {
     private final AiSuggestionService service;
+    private final AiSuggestionVoteService voteService;
 
     public AiSuggestionController(AiSuggestionService service) {
+        this(service, null);
+    }
+
+    @Autowired
+    public AiSuggestionController(AiSuggestionService service, AiSuggestionVoteService voteService) {
         this.service = service;
+        this.voteService = voteService;
     }
 
     @GetMapping("/suggestions")
@@ -42,6 +52,15 @@ public class AiSuggestionController {
     public AiSuggestionResponse reject(@PathVariable Long tripId, @PathVariable Long suggestionId,
                                        Authentication authentication) {
         return service.rejectSuggestion(tripId, suggestionId, currentUserId(authentication));
+    }
+
+    @PostMapping("/suggestions/{suggestionId}/vote")
+    public VoteResponse createVote(
+            @PathVariable Long tripId,
+            @PathVariable Long suggestionId,
+            Authentication authentication
+    ) {
+        return voteService.createSuggestionVote(tripId, suggestionId, currentUserId(authentication));
     }
 
     @PostMapping("/analysis-runs/{runId}/apply")

@@ -33,4 +33,26 @@ public class WebSocketAiAnalysisNotifier implements AiAnalysisNotifier {
                     tripId, analysisRunId, exception);
         }
     }
+
+    @Override
+    public void noResult(
+            Long tripId,
+            Long analysisRunId,
+            String reasonCode,
+            String message
+    ) {
+        try {
+            String json = objectMapper.writeValueAsString(Map.of(
+                    "type", "AI_ANALYSIS_NO_RESULT",
+                    "tripId", tripId,
+                    "analysisRunId", analysisRunId,
+                    "reasonCode", reasonCode,
+                    "message", message
+            ));
+            registry.broadcast(tripId, new TextMessage(json));
+        } catch (Exception exception) {
+            log.warn("Failed to broadcast AI analysis no-result tripId={} runId={}",
+                    tripId, analysisRunId, exception);
+        }
+    }
 }

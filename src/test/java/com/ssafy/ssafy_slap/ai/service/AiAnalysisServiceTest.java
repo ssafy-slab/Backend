@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,6 +69,48 @@ class AiAnalysisServiceTest {
         assertThat(response.suggestions().get(0).reason()).isEqualTo("여행 채팅을 기반으로 생성됨");
         verify(mapper).completeState(1L, 32L);
         verify(notifier).completed(1L, 5L);
+    }
+
+    @Test
+    void noResultCompletesAnalysisAndBroadcastsReasonWithoutSuggestions() {
+        AiAnalysisMapper mapper = mock(AiAnalysisMapper.class);
+        TripService tripService = mock(TripService.class);
+        AiScheduleClient client = mock(AiScheduleClient.class);
+        AiAnalysisNotifier notifier = mock(AiAnalysisNotifier.class);
+        AiPlaceMatcher placeMatcher = mock(AiPlaceMatcher.class);
+        AiAnalysisService service = new AiAnalysisService(mapper, tripService, client, notifier, placeMatcher);
+        List<ChatMessageResponse> messages = List.of(message(31L), message(32L));
+
+        when(tripService.findTrip(1L, 7L)).thenReturn(trip());
+        when(mapper.claimAnalysis(1L)).thenReturn(1);
+        when(mapper.findUnanalyzedMessages(1L, 100)).thenReturn(messages);
+        doAnswer(invocation -> {
+            AiAnalysisRun run = invocation.getArgument(0);
+            run.setAnalysisRunId(5L);
+            return null;
+        }).when(mapper).insertRun(any(AiAnalysisRun.class));
+        when(client.generate(any(), any(), any())).thenReturn(new AiScheduleDraftResponse(
+                null,
+                List.of(),
+                List.of(),
+                "NO_RESULT",
+                "NO_SCHEDULE_CONTEXT",
+                "메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다."
+        ));
+
+        var response = service.analyzeButton(1L, 7L, new AiScheduleDraftRequest(null, null));
+
+        assertThat(response.status()).isEqualTo("NO_RESULT");
+        assertThat(response.suggestions()).isEmpty();
+        verify(mapper, never()).insertSuggestion(any(AiSuggestion.class));
+        verify(mapper).markRunSucceeded(5L);
+        verify(mapper).completeState(1L, 32L);
+        verify(notifier).noResult(
+                1L,
+                5L,
+                "NO_SCHEDULE_CONTEXT",
+                "메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다."
+        );
     }
 
     private TripResponse trip() {

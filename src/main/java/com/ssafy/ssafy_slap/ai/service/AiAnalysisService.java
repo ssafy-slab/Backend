@@ -24,6 +24,9 @@ import java.util.List;
 public class AiAnalysisService {
     private static final int AUTO_MESSAGE_COUNT = 30;
     private static final int MAX_BUTTON_MESSAGES = 100;
+    private static final String DEFAULT_NO_RESULT_REASON = "NO_SCHEDULE_CONTEXT";
+    private static final String DEFAULT_NO_RESULT_MESSAGE =
+            "메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다.";
 
     private final AiAnalysisMapper mapper;
     private final TripService tripService;
@@ -81,6 +84,16 @@ public class AiAnalysisService {
 
         try {
             AiScheduleDraftResponse draft = client.generate(trip, messages, normalize(additionalRequest));
+            if (draft != null && draft.isNoResult()) {
+                String reasonCode = normalizeOrDefault(draft.reasonCode(), DEFAULT_NO_RESULT_REASON);
+                String message = normalizeOrDefault(draft.message(), DEFAULT_NO_RESULT_MESSAGE);
+                mapper.markRunSucceeded(run.getAnalysisRunId());
+                mapper.completeState(tripId, run.getLastMessageId());
+                notifier.noResult(tripId, run.getAnalysisRunId(), reasonCode, message);
+                log.info("AI analysis produced no suggestions: tripId={}, runId={}, reasonCode={}",
+                        tripId, run.getAnalysisRunId(), reasonCode);
+                return new AiAnalysisResponse(run.getAnalysisRunId(), triggerType, "NO_RESULT", List.of());
+            }
             List<AiSuggestionResponse> suggestions = persistSuggestions(run, draft);
             mapper.markRunSucceeded(run.getAnalysisRunId());
             mapper.completeState(tripId, run.getLastMessageId());
@@ -125,6 +138,11 @@ public class AiAnalysisService {
 
     private String normalize(String text) {
         return text == null || text.isBlank() ? null : text.trim();
+    }
+
+    private String normalizeOrDefault(String text, String defaultValue) {
+        String normalized = normalize(text);
+        return normalized == null ? defaultValue : normalized;
     }
 
     private String truncate(String message) {

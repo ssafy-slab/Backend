@@ -119,6 +119,40 @@ class GmsAiScheduleClientTest {
         assertThat(response.warnings()).containsExactly("The exact region is not specified.");
     }
 
+    @Test
+    void parsesNoResultResponseForInsufficientScheduleContext() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        String draftJson = """
+                {
+                  "resultStatus": "NO_RESULT",
+                  "reasonCode": "NO_SCHEDULE_CONTEXT",
+                  "message": "메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다.",
+                  "summary": null,
+                  "warnings": [],
+                  "schedules": []
+                }
+                """;
+        String responseBody = objectMapper.writeValueAsString(java.util.Map.of(
+                "choices", List.of(java.util.Map.of(
+                        "message", java.util.Map.of("content", draftJson)
+                ))
+        ));
+        GmsAiScheduleClient client = new GmsAiScheduleClient(
+                new CapturingHttpClient(responseBody, 200),
+                objectMapper,
+                "test-gms-key",
+                "https://gms.example.test/v1/chat/completions",
+                "gpt-test"
+        );
+
+        var response = client.generate(trip(), List.of(message()), null);
+
+        assertThat(response.resultStatus()).isEqualTo("NO_RESULT");
+        assertThat(response.reasonCode()).isEqualTo("NO_SCHEDULE_CONTEXT");
+        assertThat(response.message()).isEqualTo("메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다.");
+        assertThat(response.schedules()).isEmpty();
+    }
+
     private TripResponse trip() {
         return new TripResponse(
                 1L,

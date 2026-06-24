@@ -1,6 +1,7 @@
 package com.ssafy.ssafy_slap.ai.mapper;
 
 import com.ssafy.ssafy_slap.ai.domain.AiSuggestion;
+import com.ssafy.ssafy_slap.ai.domain.AiSuggestionVote;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -13,4 +14,23 @@ public interface AiSuggestionMapper {
     List<AiSuggestion> findPendingSuggestionsForRunForUpdate(@Param("tripId") Long tripId, @Param("runId") Long runId);
     int markApplied(@Param("suggestionId") Long suggestionId, @Param("scheduleItemId") Long scheduleItemId);
     int markRejected(@Param("suggestionId") Long suggestionId);
+    String findTripType(@Param("tripId") Long tripId);
+    AiSuggestionVote findSuggestionVote(@Param("suggestionId") Long suggestionId);
+    AiSuggestionVote findSuggestionVoteByVoteIdForUpdate(@Param("voteId") Long voteId);
+    void insertSuggestionVote(
+            @Param("suggestionId") Long suggestionId,
+            @Param("voteId") Long voteId,
+            @Param("approveOptionId") Long approveOptionId,
+            @Param("rejectOptionId") Long rejectOptionId
+    );
+    int markVoting(@Param("suggestionId") Long suggestionId);
+    int markAppliedFromVoting(
+            @Param("suggestionId") Long suggestionId,
+            @Param("scheduleItemId") Long scheduleItemId
+    );
+    int markRejectedFromVoting(@Param("suggestionId") Long suggestionId);
+    int markSuggestionVoteResolved(
+            @Param("voteId") Long voteId,
+            @Param("resolution") String resolution
+    );
 }

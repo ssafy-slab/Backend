@@ -22,6 +22,7 @@ public class AiSuggestion {
     private Integer sortOrder;
     private String status;
     private Long appliedScheduleItemId;
+    private Long voteId;
     private LocalDateTime createdAt;
     private LocalDateTime appliedAt;
 
@@ -74,6 +75,8 @@ public class AiSuggestion {
     public Integer getSortOrder() { return sortOrder; }
     public String getStatus() { return status; }
     public Long getAppliedScheduleItemId() { return appliedScheduleItemId; }
+    public Long getVoteId() { return voteId; }
+    public void setVoteId(Long voteId) { this.voteId = voteId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
 }

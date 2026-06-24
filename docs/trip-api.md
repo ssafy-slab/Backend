@@ -65,6 +65,7 @@ Related tables:
 | `GET` | `/api/trips/{tripId}/ai/suggestions` | List durable AI suggestions |
 | `POST` | `/api/trips/{tripId}/ai/suggestions/{suggestionId}/apply` | Apply one suggestion |
 | `PATCH` | `/api/trips/{tripId}/ai/suggestions/{suggestionId}/reject` | Reject one suggestion |
+| `POST` | `/api/trips/{tripId}/ai/suggestions/{suggestionId}/vote` | Create an approve/reject vote for one team-trip suggestion |
 | `POST` | `/api/trips/{tripId}/ai/analysis-runs/{runId}/apply` | Apply all pending suggestions in a run |
 | `PATCH` | `/api/trips/{tripId}/ai/analysis-runs/{runId}/reject` | Reject all pending suggestions in a run |
 | `POST` | `/api/trips/{tripId}/checklist-items` | Create a checklist item |
@@ -541,9 +542,9 @@ Response:
       "suggestedPlaceId": 351,
       "suggestedPlaceName": "해운대해수욕장",
       "suggestedRegionHint": "부산 해운대구",
-      "title": "Visit Haeundae",
-      "summary": "Generated from the group chat",
-      "reason": "Generated from trip chat",
+      "title": "해운대 방문",
+      "summary": "단체 채팅에서 생성된 일정",
+      "reason": "여행 채팅을 기반으로 생성됨",
       "scheduleDate": "2026-07-01",
       "startTime": "10:00:00",
       "endTime": "12:00:00",
@@ -572,6 +573,26 @@ After a successful run, the chat WebSocket broadcasts:
 }
 ```
 
+If the AI determines that the messages are too sparse or contain no schedule-related context,
+the analysis is completed without creating `AI_SUGGESTION` rows. The analyzed-message cursor
+still advances so the same messages are not retried indefinitely. The button response has
+`status: "NO_RESULT"` and an empty `suggestions` array, and the chat WebSocket broadcasts:
+
+```json
+{
+  "type": "AI_ANALYSIS_NO_RESULT",
+  "tripId": 1,
+  "analysisRunId": 12,
+  "reasonCode": "NO_SCHEDULE_CONTEXT",
+  "message": "메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다."
+}
+```
+
+Possible no-result reason codes are `INSUFFICIENT_MESSAGES` and `NO_SCHEDULE_CONTEXT`.
+`AI_ANALYSIS_NO_RESULT` represents a valid analysis outcome, not an API or infrastructure
+failure. Malformed AI responses and external API failures remain failed analyses and use the
+existing retry handling.
+
 The frontend should then call:
 
 ```http
@@ -590,6 +611,16 @@ PATCH /api/trips/{tripId}/ai/analysis-runs/{runId}/reject
 ```
 
 Applying creates a `SCHEDULE_ITEM` and changes the suggestion status to `APPLIED`. Rejecting changes it to `REJECTED`. Only `PENDING` suggestions can transition.
+
+For `tripType: "TEAM"`, direct apply is rejected. A pending suggestion can instead be submitted to a vote:
+
+```http
+POST /api/trips/{tripId}/ai/suggestions/{suggestionId}/vote
+```
+
+This creates one vote with `찬성` and `반대` options and changes the suggestion status to `VOTING`.
+The suggestion response includes `voteId`. Closing the vote applies the suggestion only when approval
+has more ballots than rejection; ties and rejection majorities mark it `REJECTED`.
 
 Configuration:
 

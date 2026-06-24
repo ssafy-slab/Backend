@@ -33,6 +33,7 @@ public class AiSuggestionService {
     @Transactional
     public AiSuggestionResponse applySuggestion(Long tripId, Long suggestionId, Long userId) {
         requireEditAccess(tripId, userId);
+        rejectDirectTeamApply(tripId);
         return apply(requirePending(suggestionMapper.findSuggestionForUpdate(tripId, suggestionId)), userId);
     }
 
@@ -49,6 +50,7 @@ public class AiSuggestionService {
     @Transactional
     public List<AiSuggestionResponse> applyRun(Long tripId, Long runId, Long userId) {
         requireEditAccess(tripId, userId);
+        rejectDirectTeamApply(tripId);
         List<AiSuggestion> suggestions = suggestionMapper.findPendingSuggestionsForRunForUpdate(tripId, runId);
         if (suggestions.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No pending suggestions found");
@@ -104,7 +106,8 @@ public class AiSuggestionService {
                 s.getAiSuggestionId(), s.getAnalysisRunId(), s.getSuggestedPlaceId(),
                 s.getSuggestedPlaceName(), s.getSuggestedRegionHint(), s.getSuggestedTitle(),
                 s.getSummary(), s.getReason(), s.getScheduleDate(), s.getStartTime(), s.getEndTime(),
-                s.getDayNo(), s.getSortOrder(), status, scheduleItemId, s.getCreatedAt(), s.getAppliedAt()
+                s.getDayNo(), s.getSortOrder(), status, scheduleItemId, s.getVoteId(),
+                s.getCreatedAt(), s.getAppliedAt()
         );
     }
 
@@ -123,9 +126,18 @@ public class AiSuggestionService {
     private String normalizeStatus(String status) {
         if (status == null || status.isBlank()) return "PENDING";
         String normalized = status.trim().toUpperCase();
-        if (!List.of("PENDING", "APPLIED", "REJECTED").contains(normalized)) {
+        if (!List.of("PENDING", "VOTING", "APPLIED", "REJECTED").contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid suggestion status");
         }
         return normalized;
+    }
+
+    private void rejectDirectTeamApply(Long tripId) {
+        if ("TEAM".equalsIgnoreCase(suggestionMapper.findTripType(tripId))) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Team trip suggestions must be submitted to a vote"
+            );
+        }
     }
 }
