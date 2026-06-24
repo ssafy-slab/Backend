@@ -104,9 +104,9 @@ class CommunityServiceTest {
                 null,
                 null,
                 List.of(
-                        new CommunityPostCellRequest("TEXT", "  First story  ", null),
-                        new CommunityPostCellRequest("IMAGE", null, "  https://example.com/a.jpg  "),
-                        new CommunityPostCellRequest("TEXT", "Second story", null)
+                        new CommunityPostCellRequest("TEXT", "  First story  ", null, "CENTER"),
+                        new CommunityPostCellRequest("IMAGE", null, "  https://example.com/a.jpg  ", "RIGHT"),
+                        new CommunityPostCellRequest("TEXT", "Second story", null, null)
                 )
         ));
 
@@ -119,11 +119,14 @@ class CommunityServiceTest {
                         && cells.get(0).getSortOrder() == 1
                         && cells.get(0).getCellType().equals("TEXT")
                         && cells.get(0).getTextContent().equals("First story")
+                        && cells.get(0).getAlignment().equals("CENTER")
                         && cells.get(1).getSortOrder() == 2
                         && cells.get(1).getCellType().equals("IMAGE")
                         && cells.get(1).getImageUrl().equals("https://example.com/a.jpg")
+                        && cells.get(1).getAlignment().equals("RIGHT")
                         && cells.get(2).getSortOrder() == 3
                         && cells.get(2).getTextContent().equals("Second story")
+                        && cells.get(2).getAlignment().equals("LEFT")
         ));
     }
 
@@ -178,10 +181,10 @@ class CommunityServiceTest {
         var post = detail(1L, "Good beach", 2L, 1L, false);
         when(communityMapper.findPostById(1L, 7L)).thenReturn(post);
         when(communityMapper.findPostCells(1L)).thenReturn(List.of(
-                new CommunityPostCell(10L, 1L, 1, "TEXT", "First story", null),
-                new CommunityPostCell(11L, 1L, 2, "IMAGE", null, "https://example.com/a.jpg"),
-                new CommunityPostCell(12L, 1L, 3, "TEXT", "Second story", null),
-                new CommunityPostCell(13L, 1L, 4, "IMAGE", null, "https://example.com/b.jpg")
+                new CommunityPostCell(10L, 1L, 1, "TEXT", "First story", null, "CENTER"),
+                new CommunityPostCell(11L, 1L, 2, "IMAGE", null, "https://example.com/a.jpg", "RIGHT"),
+                new CommunityPostCell(12L, 1L, 3, "TEXT", "Second story", null, "LEFT"),
+                new CommunityPostCell(13L, 1L, 4, "IMAGE", null, "https://example.com/b.jpg", "CENTER")
         ));
 
         var result = communityService.findPost(1L, 7L);
@@ -192,6 +195,22 @@ class CommunityServiceTest {
                 .containsExactly("First story", null, "Second story", null);
         assertThat(result.cells()).extracting("imageUrl")
                 .containsExactly(null, "https://example.com/a.jpg", null, "https://example.com/b.jpg");
+        assertThat(result.cells()).extracting("alignment")
+                .containsExactly("CENTER", "RIGHT", "LEFT", "CENTER");
+    }
+
+    @Test
+    void rejectsUnsupportedCellAlignment() {
+        assertThatThrownBy(() -> communityService.createPost(7L, new CommunityPostRequest(
+                "PLACE_REVIEW",
+                "Good beach",
+                null,
+                null,
+                null,
+                List.of(new CommunityPostCellRequest("TEXT", "story", null, "JUSTIFY"))
+        )))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
     }
 
     @Test

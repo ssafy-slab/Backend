@@ -5,8 +5,13 @@ import jakarta.validation.constraints.Size;
 public record CommunityPostCellRequest(
         String cellType,
         @Size(max = 5000) String textContent,
-        @Size(max = 1000) String imageUrl
+        @Size(max = 1000) String imageUrl,
+        String alignment
 ) {
+    public CommunityPostCellRequest(String cellType, String textContent, String imageUrl) {
+        this(cellType, textContent, imageUrl, null);
+    }
+
     public String normalizedCellType() {
         return normalize(cellType);
     }
@@ -17,6 +22,10 @@ public record CommunityPostCellRequest(
 
     public String normalizedImageUrl() {
         return normalize(imageUrl);
+    }
+
+    public String normalizedAlignment() {
+        return normalize(alignment);
     }
 
     private String normalize(String value) {

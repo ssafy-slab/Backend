@@ -26,6 +26,8 @@ public class CommunityService {
     private static final Set<String> SORTS = Set.of("latest", "popular", "comments");
     private static final String CELL_TYPE_TEXT = "TEXT";
     private static final String CELL_TYPE_IMAGE = "IMAGE";
+    private static final String DEFAULT_ALIGNMENT = "LEFT";
+    private static final Set<String> CELL_ALIGNMENTS = Set.of("LEFT", "CENTER", "RIGHT");
     private static final int MAX_POST_CELLS = 5;
 
     private final CommunityMapper communityMapper;
@@ -231,17 +233,18 @@ public class CommunityService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cellType is required");
         }
         String cellType = request.normalizedCellType().toUpperCase();
+        String alignment = normalizeAlignment(request.normalizedAlignment());
         if (CELL_TYPE_TEXT.equals(cellType)) {
             if (request.normalizedTextContent() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "textContent is required");
             }
-            return new CommunityPostCell(null, null, sortOrder, cellType, request.normalizedTextContent(), null);
+            return new CommunityPostCell(null, null, sortOrder, cellType, request.normalizedTextContent(), null, alignment);
         }
         if (CELL_TYPE_IMAGE.equals(cellType)) {
             if (request.normalizedImageUrl() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "imageUrl is required");
             }
-            return new CommunityPostCell(null, null, sortOrder, cellType, null, request.normalizedImageUrl());
+            return new CommunityPostCell(null, null, sortOrder, cellType, null, request.normalizedImageUrl(), alignment);
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cellType must be TEXT or IMAGE");
     }
@@ -250,10 +253,10 @@ public class CommunityService {
         java.util.ArrayList<CommunityPostCell> cells = new java.util.ArrayList<>();
         int sortOrder = 1;
         if (request.normalizedContent() != null) {
-            cells.add(new CommunityPostCell(null, null, sortOrder++, CELL_TYPE_TEXT, request.normalizedContent(), null));
+            cells.add(new CommunityPostCell(null, null, sortOrder++, CELL_TYPE_TEXT, request.normalizedContent(), null, DEFAULT_ALIGNMENT));
         }
         if (request.normalizedImageUrl() != null) {
-            cells.add(new CommunityPostCell(null, null, sortOrder, CELL_TYPE_IMAGE, null, request.normalizedImageUrl()));
+            cells.add(new CommunityPostCell(null, null, sortOrder, CELL_TYPE_IMAGE, null, request.normalizedImageUrl(), DEFAULT_ALIGNMENT));
         }
         return cells;
     }
@@ -283,12 +286,20 @@ public class CommunityService {
         java.util.ArrayList<CommunityPostCell> fallback = new java.util.ArrayList<>();
         int sortOrder = 1;
         if (post.getContent() != null && !post.getContent().isBlank()) {
-            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder++, CELL_TYPE_TEXT, post.getContent(), null));
+            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder++, CELL_TYPE_TEXT, post.getContent(), null, DEFAULT_ALIGNMENT));
         }
         if (post.getImageUrl() != null && !post.getImageUrl().isBlank()) {
-            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder, CELL_TYPE_IMAGE, null, post.getImageUrl()));
+            fallback.add(new CommunityPostCell(null, post.getPostId(), sortOrder, CELL_TYPE_IMAGE, null, post.getImageUrl(), DEFAULT_ALIGNMENT));
         }
         return fallback;
+    }
+
+    private String normalizeAlignment(String alignment) {
+        String normalized = alignment == null ? DEFAULT_ALIGNMENT : alignment.toUpperCase();
+        if (!CELL_ALIGNMENTS.contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "alignment must be LEFT, CENTER, or RIGHT");
+        }
+        return normalized;
     }
 
     private void validatePlace(Long placeId) {

@@ -8,17 +8,23 @@ public class CommunityPostCell {
     private String cellType;
     private String textContent;
     private String imageUrl;
+    private String alignment;
 
     public CommunityPostCell() {
     }
 
     public CommunityPostCell(Long postCellId, Long postId, int sortOrder, String cellType, String textContent, String imageUrl) {
+        this(postCellId, postId, sortOrder, cellType, textContent, imageUrl, "LEFT");
+    }
+
+    public CommunityPostCell(Long postCellId, Long postId, int sortOrder, String cellType, String textContent, String imageUrl, String alignment) {
         this.postCellId = postCellId;
         this.postId = postId;
         this.sortOrder = sortOrder;
         this.cellType = cellType;
         this.textContent = textContent;
         this.imageUrl = imageUrl;
+        this.alignment = alignment;
     }
 
     public Long getPostCellId() { return postCellId; }
@@ -33,4 +39,6 @@ public class CommunityPostCell {
     public void setTextContent(String textContent) { this.textContent = textContent; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public String getAlignment() { return alignment; }
+    public void setAlignment(String alignment) { this.alignment = alignment; }
 }

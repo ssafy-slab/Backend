@@ -7,7 +7,8 @@ public record CommunityPostCellResponse(
         int sortOrder,
         String cellType,
         String textContent,
-        String imageUrl
+        String imageUrl,
+        String alignment
 ) {
     public static CommunityPostCellResponse from(CommunityPostCell cell) {
         return new CommunityPostCellResponse(
@@ -15,7 +16,8 @@ public record CommunityPostCellResponse(
                 cell.getSortOrder(),
                 cell.getCellType(),
                 cell.getTextContent(),
-                cell.getImageUrl()
+                cell.getImageUrl(),
+                cell.getAlignment()
         );
     }
 }
