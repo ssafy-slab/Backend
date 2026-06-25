@@ -5,13 +5,10 @@ CREATE DATABASE IF NOT EXISTS `finalproject`
 USE `finalproject`;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS `REPORT`;
 DROP TABLE IF EXISTS `COMMENT`;
-DROP TABLE IF EXISTS `COMMUNITY_POST_BOOKMARK`;
 DROP TABLE IF EXISTS `COMMUNITY_POST_LIKE`;
 DROP TABLE IF EXISTS `COMMUNITY_POST_CELL`;
 DROP TABLE IF EXISTS `COMMUNITY_POST`;
-DROP TABLE IF EXISTS `AI_RECOMMENDATION`;
 DROP TABLE IF EXISTS `CHECKLIST_ITEM`;
 DROP TABLE IF EXISTS `AI_SUGGESTION_VOTE`;
 DROP TABLE IF EXISTS `VOTE_BALLOT`;
@@ -562,36 +559,6 @@ CREATE TABLE `CHECKLIST_ITEM` (
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `AI_RECOMMENDATION` (
-  `recommendation_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `user_id` BIGINT NOT NULL,
-  `trip_id` BIGINT NULL,
-  `place_id` BIGINT NULL,
-  `condition_text` TEXT NULL,
-  `reason` TEXT NULL,
-  `sort_order` INT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`recommendation_id`),
-  KEY `idx_ai_recommendation_user` (`user_id`),
-  KEY `idx_ai_recommendation_trip` (`trip_id`),
-  KEY `idx_ai_recommendation_place` (`place_id`),
-  CONSTRAINT `fk_ai_recommendation_user`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `APP_USER` (`user_id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  CONSTRAINT `fk_ai_recommendation_trip`
-    FOREIGN KEY (`trip_id`)
-    REFERENCES `TRIP` (`trip_id`)
-    ON UPDATE CASCADE
-    ON DELETE SET NULL,
-  CONSTRAINT `fk_ai_recommendation_place`
-    FOREIGN KEY (`place_id`)
-    REFERENCES `PLACE` (`place_id`)
-    ON UPDATE CASCADE
-    ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE `COMMUNITY_POST` (
   `post_id` BIGINT NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT NOT NULL,
@@ -721,26 +688,6 @@ CREATE TABLE `COMMENT` (
   CONSTRAINT `fk_comment_parent`
     FOREIGN KEY (`parent_comment_id`)
     REFERENCES `COMMENT` (`comment_id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `REPORT` (
-  `report_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `reporter_user_id` BIGINT NOT NULL,
-  `target_type` VARCHAR(50) NOT NULL,
-  `target_id` BIGINT NOT NULL,
-  `reason` TEXT NOT NULL,
-  `status` VARCHAR(50) NOT NULL DEFAULT 'RECEIVED',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `resolved_at` DATETIME NULL,
-  PRIMARY KEY (`report_id`),
-  KEY `idx_report_reporter` (`reporter_user_id`),
-  KEY `idx_report_target` (`target_type`, `target_id`),
-  KEY `idx_report_status` (`status`),
-  CONSTRAINT `fk_report_reporter`
-    FOREIGN KEY (`reporter_user_id`)
-    REFERENCES `APP_USER` (`user_id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
