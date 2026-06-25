@@ -121,6 +121,9 @@
         ORDER BY
         <include refid="placeSearchScore"/>
         <choose>
+            <when test="sort == 'random'">
+                RAND(),
+            </when>
             <when test="sort == 'recommended'">
                 CASE WHEN COALESCE(ra.review_count, 0) = 0 THEN 1 ELSE 0 END ASC,
                 COALESCE(ra.recommendation_score, 0) DESC,

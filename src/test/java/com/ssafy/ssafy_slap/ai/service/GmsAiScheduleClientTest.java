@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.ssafy_slap.chat.dto.ChatMessageResponse;
 import com.ssafy.ssafy_slap.trip.dto.TripResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -26,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GmsAiScheduleClientTest {
 
@@ -73,6 +75,9 @@ class GmsAiScheduleClientTest {
         assertThat(httpClient.request.headers().firstValue("Authorization"))
                 .contains("Bearer test-gms-key");
         assertThat(httpClient.requestBody).contains("\"model\":\"gpt-test\"");
+        assertThat(httpClient.requestBody).contains("\"role\":\"developer\"");
+        assertThat(httpClient.requestBody).doesNotContain("\"role\":\"system\"");
+        assertThat(httpClient.requestBody).doesNotContain("\"temperature\"");
         assertThat(httpClient.requestBody).contains("동선을 줄여줘");
         assertThat(httpClient.requestBody).contains("첫날 오전에는 해운대");
         assertThat(httpClient.requestBody)
@@ -156,6 +161,23 @@ class GmsAiScheduleClientTest {
         assertThat(response.reasonCode()).isEqualTo("NO_SCHEDULE_CONTEXT");
         assertThat(response.message()).isEqualTo("메시지가 너무 적거나 일정 관련 내용이 없어 제안을 만들지 못했습니다.");
         assertThat(response.schedules()).isEmpty();
+    }
+
+    @Test
+    void includesGmsErrorBodyPreviewWhenRequestFails() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        GmsAiScheduleClient client = new GmsAiScheduleClient(
+                new CapturingHttpClient("{\"error\":{\"message\":\"unsupported parameter: temperature\"}}", 400),
+                objectMapper,
+                "test-gms-key",
+                "https://gms.example.test/v1/chat/completions",
+                "gpt-5.5"
+        );
+
+        assertThatThrownBy(() -> client.generate(trip(), List.of(message()), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("GMS request failed with status 400")
+                .hasMessageContaining("unsupported parameter: temperature");
     }
 
     private TripResponse trip() {

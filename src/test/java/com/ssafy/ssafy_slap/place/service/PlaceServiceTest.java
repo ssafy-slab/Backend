@@ -71,6 +71,7 @@ class PlaceServiceTest {
         assertThat(new PlaceSearchRequest(null, null, null, "recommended", null, 0, 20).normalizedSort()).isEqualTo("recommended");
         assertThat(new PlaceSearchRequest(null, null, null, "reviewCount", null, 0, 20).normalizedSort()).isEqualTo("reviewCount");
         assertThat(new PlaceSearchRequest(null, null, null, "rating", null, 0, 20).normalizedSort()).isEqualTo("rating");
+        assertThat(new PlaceSearchRequest(null, null, null, "random", null, 0, 20).normalizedSort()).isEqualTo("random");
         assertThat(new PlaceSearchRequest(null, null, null, "unknown", null, 0, 20).normalizedSort()).isNull();
     }
 
