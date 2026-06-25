@@ -120,9 +120,8 @@ public class GmsAiScheduleClient implements AiScheduleClient {
                     trip.tripId(), messages.size(), StringUtils.hasText(chatCompletionsUrl), model);
             String requestBody = objectMapper.writeValueAsString(Map.of(
                     "model", model,
-                    "temperature", 0.2,
                     "messages", List.of(
-                            Map.of("role", "system", "content", SYSTEM_PROMPT),
+                            Map.of("role", "developer", "content", SYSTEM_PROMPT),
                             Map.of("role", "user", "content",
                                     userPrompt(trip, messages, existingSchedules, additionalRequest))
                     )
@@ -138,11 +137,12 @@ public class GmsAiScheduleClient implements AiScheduleClient {
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
             );
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String responseBodyPreview = preview(response.body());
                 log.error("GMS AI request failed: tripId={}, status={}, responseBodyPreview={}",
-                        trip.tripId(), response.statusCode(), preview(response.body()));
+                        trip.tripId(), response.statusCode(), responseBodyPreview);
                 throw new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
-                        "GMS request failed with status " + response.statusCode()
+                        gmsFailureReason(response.statusCode(), responseBodyPreview)
                 );
             }
             log.info("GMS AI request succeeded: tripId={}, status={}", trip.tripId(), response.statusCode());
@@ -165,6 +165,14 @@ public class GmsAiScheduleClient implements AiScheduleClient {
         }
         String normalized = body.replaceAll("\\s+", " ").trim();
         return normalized.length() <= 500 ? normalized : normalized.substring(0, 500);
+    }
+
+    private String gmsFailureReason(int statusCode, String responseBodyPreview) {
+        String reason = "GMS request failed with status " + statusCode;
+        if (!StringUtils.hasText(responseBodyPreview)) {
+            return reason;
+        }
+        return reason + ": " + responseBodyPreview;
     }
 
     private AiScheduleDraftResponse parseResponse(String responseBody) throws Exception {

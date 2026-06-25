@@ -16,6 +16,8 @@ class PlaceMapperXmlTest {
         assertThat(xml).contains("sort == 'recommended'");
         assertThat(xml).contains("sort == 'reviewCount'");
         assertThat(xml).contains("sort == 'rating'");
+        assertThat(xml).contains("sort == 'random'");
+        assertThat(xml).contains("RAND()");
         assertThat(xml).contains("recommendation_score");
     }
 }

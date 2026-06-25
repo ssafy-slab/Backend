@@ -21,7 +21,7 @@ public record PlaceSearchRequest(
     }
 
     public String normalizedSort() {
-        if ("recommended".equals(sort) || "reviewCount".equals(sort) || "rating".equals(sort)) {
+        if ("recommended".equals(sort) || "reviewCount".equals(sort) || "rating".equals(sort) || "random".equals(sort)) {
             return sort;
         }
         return null;
